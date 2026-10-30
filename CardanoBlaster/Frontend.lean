@@ -49,11 +49,12 @@ def runWorker (home driver log solver : FilePath) (timeout : Nat) : IO UInt32 :=
       discard <| IO.Process.output { cmd := "kill", args := #["-TERM"] ++ pids }
       expired := true
       for _ in [:40] do
-        if (← child.tryWait).isSome then break
+        result ← child.tryWait
+        if result.isSome then break
         IO.sleep 50
-      if (← child.tryWait).isNone then
+      if result.isNone then
         discard <| IO.Process.output { cmd := "kill", args := #["-KILL"] ++ pids }
-      result := some (← child.wait)
+        result := some (← child.wait)
       break
     IO.sleep 25
     result ← child.tryWait

@@ -74,6 +74,16 @@ private def invoke (cli bp assurance output : FilePath) (refresh : Bool) (expect
   IO.println s!"{assurance.parent.get!.fileName.getD "case"}: {← text report "status"}"
   return report
 
+private def deadline (home : FilePath) : IO Unit :=
+  IO.FS.withTempDir fun folder => do
+    let driver := folder / "Delay.lean"
+    IO.FS.writeFile driver "import Lean\n#eval IO.sleep 10000\n"
+    let outcome ← try
+      let code ← runWorker home driver (folder / "delay.log") (home / "bin/z3") 1
+      pure s!"worker exited with code {code}: {← IO.FS.readFile (folder / "delay.log")}"
+    catch error => pure error.toString
+    ensure ((outcome.splitOn "timed out").length > 1) s!"controlled worker deadline not enforced: {outcome}"
+
 private def integration (cli examples output : FilePath) : IO Unit := do
   IO.FS.createDirAll output
   let guards := output / "forbidden-tools"
@@ -113,14 +123,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     writeJson (folder / "notes.json") notes
     let report ← invoke cli (examples / "game/plutus.json") (folder / "notes.json") output true 2
     ensure (optText (← array (← field report "results"))[0]! "outcome" == some "not-checked") "unchecked claim passed"
-    let driver := folder / "Delay.lean"
-    IO.FS.writeFile driver "import Lean\n#eval IO.sleep 10000\n"
-    let home := cli.parent.get!.parent.get!
-    let mut expired := false
-    try
-      discard <| runWorker home driver (folder / "delay.log") (home / "bin/z3") 1
-    catch error => expired := (error.toString.splitOn "timed out").length > 1
-    ensure expired "controlled worker deadline not enforced"
+    deadline cli.parent.get!.parent.get!
     return #[report]
   reports := reports ++ additional
   let readme := cli.parent.get!.parent.get! / "README.txt"
@@ -139,6 +142,7 @@ unsafe def main (args : List String) : IO UInt32 := do
     match args with
     | "--internal-frontend" :: _ => CardanoBlaster.dispatch args
     | ["unit"] => unit; return (0 : UInt32)
+    | ["deadline", home] => deadline home; return (0 : UInt32)
     | ["integration", cli, examples, output] => integration cli examples output; return (0 : UInt32)
-    | _ => IO.eprintln "native-tests unit | integration <cli> <examples> <output>"; return (3 : UInt32)
+    | _ => IO.eprintln "native-tests unit | deadline <home> | integration <cli> <examples> <output>"; return (3 : UInt32)
   catch error => IO.eprintln error.toString; return (1 : UInt32)
