@@ -1,0 +1,67 @@
+{
+  "format": "cardano-blaster-examples-v1",
+  "producer": {
+    "url": "https://github.com/IntersectMBO/plutus",
+    "rev": "f39439265c603d379bf5836596dccee8311b5189"
+  },
+  "annotationSpecification": {
+    "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+    "rev": "1f7ab847736e5fa53cadc2099300cdaf3c720c6b",
+    "version": "1.0.0"
+  },
+  "bundles": {
+    "auction": {
+      "assuranceSha256": "4761a936d62d7b11760a51cca21858e6d599b0fb20ff8b2104b95553dbcd1104",
+      "blueprintSha256": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8",
+      "properties": 31,
+      "originalAssuranceSha256": "ddf83344e2456166c38408a371edd1fde5c412e2c3bb28204c01ebb7b1e1483d",
+      "originalEnvironmentSha256": "c51959c565051d93bc4771afd9fa1fc7abf18bb57867720dc20d570d923a579d",
+      "environmentSha256": "78f535b6e3df7771ef9b0330b54a47dfe3e0cdc8d30c39d88dd1db95fbb96013"
+    },
+    "auction-counterexample": {
+      "assuranceSha256": "1d4af761fa5300f65ab13f3559d113a05b5cb87f8893ad95e3708b7e7fcfa7b1",
+      "blueprintSha256": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8",
+      "properties": 1,
+      "originalAssuranceSha256": "3786dd2c395b3aae3fb7b6ca66d6c332619bd52815703601217e02d7b2619a4b",
+      "originalEnvironmentSha256": "e23dd855d7eee68e8640f2bc289d6e37f39f1c46afd7fecce69030240a49abbb",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
+    },
+    "game": {
+      "assuranceSha256": "c4aa2c9b5cbe6475eca780dd373a4f3cc918b5c6b189471f33268318f3d21e17",
+      "blueprintSha256": "a1a93509cb10e922c20242c39f7a8c01c164208fbfd96e7a0aff53308104644f",
+      "properties": 3,
+      "originalAssuranceSha256": "10619e08d540f56852187d7e3d720772282d30e06469a7f4b476258c0c3def85",
+      "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
+      "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    },
+    "helper-counterexample": {
+      "assuranceSha256": "2e9158d2c77d3fc7eeb175e88f870dab1141b54c7bdf499be31f5911c231fe92",
+      "blueprintSha256": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8",
+      "properties": 1,
+      "originalAssuranceSha256": "5c5c6b38d76856b3eb66fdb5cc5b7809d69d1288ac758e6282006e591fa56567",
+      "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
+      "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    },
+    "parameters": {
+      "assuranceSha256": "bf07e1f28945caa319c196938eba232d229a60c572604f8e1976a85e0dc80e39",
+      "blueprintSha256": "ec67f0c0b69c274e2ad4f899af61d43b4c16f22864bd663c11e579e90e060b8c",
+      "properties": 6,
+      "originalAssuranceSha256": "25d69ae77135454fdd3c31c6f2e111fa2676ad53b9b8ef680b7ba3c6b8d379f3",
+      "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
+      "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    },
+    "recursive": {
+      "assuranceSha256": "aabba0ad85a53351b2581196937ff2e7e148bf40e48edf4e08b4775adac6af36",
+      "blueprintSha256": "aaa45fc76503c884deff10946fc9508bf2b3ff8dba11fb5300faa5c825881bb4",
+      "properties": 4,
+      "originalAssuranceSha256": "692e4db689e1c8f7107487c266c3fca1eaddbc21be463f093cdbd5a47b6a84af",
+      "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
+      "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    }
+  },
+  "mutations": {
+    "helper-counterexample": "Reverse the outbids_exact comparison from < to > in the claim; preserve compiled UPLC.",
+    "auction-counterexample": "Raise the first_bid_exact minimum from 100 to 101 in the claim; preserve compiled UPLC."
+  },
+  "packaging": "Compact environment JSON; remove unused checking-context entries from the two single-property counterexample bundles; recompute affected SHA-256 references. Compiled code and all claims unchanged."
+}

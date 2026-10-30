@@ -1,0 +1,79 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+  "blueprint": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8"
+    },
+    "uri": "plutus.json"
+  },
+  "checkingContexts": {
+    "outbids_exact": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "fadc06930f6a11268ce156d8757755381f25f0c899bf6a7777792681da48dfb8"
+      },
+      "uri": "checking-outbids_exact.json"
+    }
+  },
+  "definitions": {
+    "BuiltinData": {}
+  },
+  "formalFragments": [],
+  "functions": {
+    "outbids": {
+      "arguments": [
+        {
+          "dataType": "#integer"
+        },
+        {
+          "dataType": "#integer"
+        }
+      ],
+      "compiledCode": "4a01010022337100040021",
+      "hash": {
+        "alg": "sha256",
+        "digest": "264d481d68647619542971000e727b145b21600e612476ea09841dce094752a8"
+      },
+      "plutusVersion": "v3",
+      "result": {
+        "dataType": "#boolean"
+      },
+      "serialization": "cbor-flat"
+    }
+  },
+  "languages": {
+    "ual": {
+      "name": "Universal Annotation Language",
+      "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+      "version": "1.0"
+    }
+  },
+  "preamble": {
+    "authors": [
+      "Plutus contributors"
+    ],
+    "created": "2026-10-06",
+    "title": "Auction with detached specification",
+    "version": "1.0.0"
+  },
+  "properties": [
+    {
+      "checkingContext": "outbids_exact",
+      "id": "outbids_exact",
+      "scope": {
+        "functions": [
+          "outbids"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀ (old proposed : Integer), outbids_returns old proposed (decide (old > proposed))",
+          "uses": []
+        },
+        "text": "The separately compiled helper returns the native comparison result."
+      }
+    }
+  ]
+}

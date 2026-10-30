@@ -1,0 +1,46 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/checking-context.json",
+  "environment": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "78f535b6e3df7771ef9b0330b54a47dfe3e0cdc8d30c39d88dd1db95fbb96013"
+    },
+    "uri": "environment.json"
+  },
+  "execution": {
+    "acceptance": "evaluation",
+    "budget": {
+      "kind": "cek-steps",
+      "steps": 100
+    },
+    "semanticsVariant": "E"
+  },
+  "profile": "https://cips.cardano.org/cips/cipXXXX/profiles/uplc-step-check/v1",
+  "targets": [
+    {
+      "function": "outbids",
+      "functionHash": {
+        "alg": "sha256",
+        "digest": "264d481d68647619542971000e727b145b21600e612476ea09841dce094752a8"
+      },
+      "functionInterface": {
+        "arguments": [
+          {
+            "dataType": "#integer"
+          },
+          {
+            "dataType": "#integer"
+          }
+        ],
+        "definitions": {
+          "BuiltinData": {}
+        },
+        "plutusVersion": "v3",
+        "result": {
+          "dataType": "#boolean"
+        },
+        "serialization": "cbor-flat"
+      }
+    }
+  ]
+}

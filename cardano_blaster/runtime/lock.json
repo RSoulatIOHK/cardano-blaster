@@ -1,0 +1,43 @@
+{
+  "format": "cardano-blaster-runtime-v1",
+  "lean": "leanprover/lean4:v4.24.0",
+  "packages": [
+    {
+      "name": "Blaster",
+      "url": "https://github.com/input-output-hk/Lean-blaster",
+      "rev": "1cb5a63e0416f336caa3104c2654718e6f971bc9"
+    },
+    {
+      "name": "PlutusCore",
+      "url": "https://github.com/input-output-hk/PlutusCoreBlaster",
+      "rev": "8ceb98c71a279a2796bbffe26720a454971fdddc"
+    },
+    {
+      "name": "CardanoLedgerApi",
+      "url": "https://github.com/input-output-hk/CardanoLedgerApiBlaster",
+      "rev": "5492bb0d8e5ee01587303c153440636e5f8ee933"
+    }
+  ],
+  "z3": {
+    "version": "5.3.1",
+    "source": "ac9156f97cb44e56472e1c841f7a2beb1e976b24",
+    "assets": {
+      "Darwin-arm64": {
+        "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.1/z3-5.3.1-arm64-osx-13.3.zip",
+        "sha256": "0de02438052952153aab5d1361be4d61b6d226337440356c054d403c959da86b"
+      },
+      "Darwin-x86_64": {
+        "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.1/z3-5.3.1-x64-osx-13.3.zip",
+        "sha256": "221a03688d6b08814a90c78b42d16d38aa6355dacd0a5253665d42c4d4361230"
+      },
+      "Linux-x86_64": {
+        "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.1/z3-5.3.1-x64-glibc-2.39.zip",
+        "sha256": "acca9625e8cc8edeb9647b653a1bd696544ddeb5d1c2970a4576734a0c175b40"
+      },
+      "Linux-aarch64": {
+        "url": "https://github.com/Z3Prover/z3/releases/download/z3-5.3.1/z3-5.3.1-arm64-glibc-2.38.zip",
+        "sha256": "73195cee08f4a1a53a605b65845268e0ac999666cb8f4e604d2260e0c9c60b5a"
+      }
+    }
+  }
+}

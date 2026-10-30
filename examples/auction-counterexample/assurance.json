@@ -1,0 +1,87 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+  "blueprint": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8"
+    },
+    "uri": "plutus.json"
+  },
+  "checkingContexts": {
+    "first_bid_exact": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "599f5884ad8a241ed60971b43f8c9f0419fb06747e78c30c68c62a1805ce98e2"
+      },
+      "uri": "checking-first_bid_exact.json"
+    }
+  },
+  "definitions": {
+    "BuiltinData": {}
+  },
+  "formalFragments": [
+    {
+      "id": "Example.Ual.Auction.FormalSpec",
+      "language": "ual",
+      "source": "def bakedMinBid : Integer := 100\n  def bakedEndTime : Integer := 1725227091000\n  def policyId : CurrencySymbol := ⟨String.mk (List.replicate 28 (Char.ofNat 0))⟩\n  def nftName : TokenName := \"MY_TOKEN\"\n  def sellerPKH : PubKeyHash := ⟨String.mk (List.replicate 40 (Char.ofNat 0))⟩\n  def scriptAddr : Address := ⟨.ScriptCredential \"aa\", none⟩\n  def ownRef : TxOutRef := ⟨\"bb\", 0⟩\n  def ownRef2 : TxOutRef := ⟨\"bb\", 1⟩\n  def oldBidAddr : ByteString := \"oldAddr\"\n  def oldBidPubKeyHash : PubKeyHash := \"oldPKH\"\n  def junkPolicy : CurrencySymbol := \"junkcs\"\n  def junkName : TokenName := \"JUNK\"\n\n  def bidData (addr pkh : ByteString) (amount : Integer) : Data :=\n    Data.Constr 0 [Data.B addr, Data.B pkh, Data.I amount]\n  def datumData (old : Integer) : Data :=\n    if old ≤ 0 then Data.Constr 1 []\n    else Data.Constr 0 [bidData oldBidAddr oldBidPubKeyHash old]\n  def newBidRed (amount : Integer) : Data :=\n    Data.Constr 0 [bidData \"cc\" \"dd\" amount]\n  def payoutRed : Data := Data.Constr 1 []\n  def adaE (n : Integer) : Data × Data :=\n    (Data.B \"\", Data.Map [(Data.B \"\", Data.I n)])\n  def tokE (pol : CurrencySymbol) (tn : TokenName) (n : Integer) : Data × Data :=\n    (Data.B pol, Data.Map [(Data.B tn, Data.I n)])\n  def scriptInput : TxInInfo :=\n    ⟨ownRef, ⟨scriptAddr, [], .NoOutputDatum, none⟩⟩\n  def contOut (value : Value) (datum : OutputDatum) : TxOut :=\n    ⟨scriptAddr, value, datum, none⟩\n  def upperRange (hi : Integer) : Data :=\n    Data.Constr 0 [Data.Constr 0 [Data.Constr 0 [], Data.Constr 1 []],\n                   Data.Constr 0 [Data.Constr 1 [Data.I hi], Data.Constr 1 []]]\n  def lowerRange (lo : Integer) : Data :=\n    Data.Constr 0 [Data.Constr 0 [Data.Constr 1 [Data.I lo], Data.Constr 1 []],\n                   Data.Constr 0 [Data.Constr 2 [], Data.Constr 1 []]]\n\n  def scenarioCtx (inputs : List TxInInfo) (outputs : List TxOut)\n      (mint : Value) (red range datum : Data) : ScriptContext :=\n    ⟨{ txInfoInputs := inputs, txInfoReferenceInputs := [], txInfoOutputs := outputs,\n       txInfoFee := 0, txInfoMint := mint, txInfoTxCerts := [], txInfoWdrl := [],\n       txInfoValidRange := range, txInfoSignatories := [], txInfoRedeemers := [],\n       txInfoData := [], txInfoId := \"\", txInfoVotes := [],\n       txInfoProposalProcedures := [],\n       txInfoCurrentTreasuryAmount := Data.Constr 1 [],\n       txInfoTreasuryDonation := Data.Constr 1 [] },\n     red, ScriptInfo.SpendingScript ownRef (some datum)⟩\n\n  def newBidContext (old proposed locked refund tokens hi : Integer) : ScriptContext :=\n    let continuing := contOut [adaE locked, tokE policyId nftName tokens]\n      (.OutputDatum (Data.Constr 0 [bidData \"cc\" \"dd\" proposed]))\n    let refundOutput : TxOut :=\n      ⟨⟨.PubKeyCredential oldBidPubKeyHash, none⟩, [adaE refund], .NoOutputDatum, none⟩\n    let outputs := if refund > 0 then [refundOutput, continuing] else [continuing]\n    scenarioCtx [scriptInput] outputs [] (newBidRed proposed) (upperRange hi) (datumData old)\n\n  def payoutContext (bid paid tokens lo : Integer) : ScriptContext :=\n    let winner : PubKeyHash := if 0 < bid then oldBidPubKeyHash else sellerPKH\n    let sellerOutput : TxOut :=\n      ⟨⟨.PubKeyCredential sellerPKH, none⟩, [adaE paid], .NoOutputDatum, none⟩\n    let assetOutput : TxOut :=\n      ⟨⟨.PubKeyCredential winner, none⟩, [tokE policyId nftName tokens], .NoOutputDatum, none⟩\n    let outputs := if 0 < bid then [sellerOutput, assetOutput] else [assetOutput]\n    scenarioCtx [scriptInput] outputs [] payoutRed (lowerRange lo) (datumData bid)\n\n  def newBidAttackContext (old proposed locked refund tokens hi junk minted : Integer) : ScriptContext :=\n    let continuing := contOut [adaE locked, tokE policyId nftName tokens,\n                               tokE junkPolicy junkName junk]\n      (.OutputDatum (Data.Constr 0 [bidData \"cc\" \"dd\" proposed]))\n    let refundOutput : TxOut :=\n      ⟨⟨.PubKeyCredential oldBidPubKeyHash, none⟩, [adaE refund], .NoOutputDatum, none⟩\n    let outputs := if refund > 0 then [refundOutput, continuing] else [continuing]\n    scenarioCtx [scriptInput] outputs [tokE junkPolicy junkName minted]\n      (newBidRed proposed) (upperRange hi) (datumData old)\n\n  def payoutDoubleSatContext (bid paid tokens lo : Integer) : ScriptContext :=\n    let winner : PubKeyHash := if 0 < bid then oldBidPubKeyHash else sellerPKH\n    let sellerOutput : TxOut :=\n      ⟨⟨.PubKeyCredential sellerPKH, none⟩, [adaE paid], .NoOutputDatum, none⟩\n    let assetOutput : TxOut :=\n      ⟨⟨.PubKeyCredential winner, none⟩, [tokE policyId nftName tokens], .NoOutputDatum, none⟩\n    let outputs := if 0 < bid then [sellerOutput, assetOutput] else [assetOutput]\n    scenarioCtx [scriptInput, ⟨ownRef2, ⟨scriptAddr, [], .NoOutputDatum, none⟩⟩]\n      outputs [] payoutRed (lowerRange lo) (datumData bid)\n\n  def demoCtx (outputs : List TxOut) (red : Data) (datum : Data) : ScriptContext :=\n    scenarioCtx [scriptInput] outputs [] red (upperRange 1000) datum\n  def demoBid : Data := bidData \"cc\" \"dd\" 200\n  def demoDatum : OutputDatum := .OutputDatum (Data.Constr 0 [demoBid])\n  def demoOutput : TxOut := contOut [adaE 200, tokE policyId nftName 1] demoDatum\n  def demoValidCtx : ScriptContext :=\n    demoCtx [demoOutput] (newBidRed 200) (datumData 0)\n  def demoWrongTnCtx : ScriptContext :=\n    demoCtx [contOut [adaE 200, tokE policyId junkName 1] demoDatum]\n      (newBidRed 200) (datumData 0)\n  def demoWrongPolicyCtx : ScriptContext :=\n    demoCtx [contOut [adaE 200, tokE junkPolicy nftName 1] demoDatum]\n      (newBidRed 200) (datumData 0)\n  def demoDatumHashCtx : ScriptContext :=\n    demoCtx [contOut [adaE 200, tokE policyId nftName 1] (.OutputDatumHash \"h\")]\n      (newBidRed 200) (datumData 0)\n  def demoNoDatumCtx : ScriptContext :=\n    demoCtx [contOut [adaE 200, tokE policyId nftName 1] .NoOutputDatum]\n      (newBidRed 200) (datumData 0)\n  def demoWrongDatumCtx : ScriptContext :=\n    demoCtx [contOut [adaE 200, tokE policyId nftName 1]\n      (.OutputDatum (Data.Constr 0 [bidData \"cc\" \"dd\" 201]))]\n      (newBidRed 200) (datumData 0)\n  def demoOtherRedeemerCtx : ScriptContext :=\n    demoCtx [demoOutput] (Data.Constr 2 []) (datumData 0)\n  def demoPayoutStakedCtx : ScriptContext :=\n    let stake : Option StakingCredential := some (.StakingHash (.PubKeyCredential \"st\"))\n    let sellerOutput : TxOut :=\n      ⟨⟨.PubKeyCredential sellerPKH, stake⟩, [adaE 200], .NoOutputDatum, none⟩\n    let assetOutput : TxOut :=\n      ⟨⟨.PubKeyCredential oldBidPubKeyHash, stake⟩,\n       [tokE policyId nftName 1], .NoOutputDatum, none⟩\n    scenarioCtx [scriptInput] [sellerOutput, assetOutput] [] payoutRed\n      (lowerRange bakedEndTime) (datumData 200)\n\ndef typedAuction (validator : Data → State) (ctx : CardanoLedgerApi.V3.Contexts.ScriptContext) :=\n    validator (CardanoLedgerApi.IsData.Class.IsData.toData ctx)\n\n  def bidScenario (validator : Data → State) (old proposed locked refund tokens hi : Integer) :=\n    typedAuction validator (newBidContext old proposed locked refund tokens hi)\n\n  def payoutScenario (validator : Data → State) (bid paid tokens lo : Integer) :=\n    typedAuction validator (payoutContext bid paid tokens lo)\n\ndef auditBid (validator : Data → State) (old proposed locked refund tokens hi : Integer) : Prop :=\n    isSuccessful (bidScenario validator old proposed locked refund tokens hi)\n  def auditPayout (validator : Data → State) (bid paid tokens lo : Integer) : Prop :=\n    isSuccessful (payoutScenario validator bid paid tokens lo)\n  def auditAttack (validator : Data → State) (old proposed locked refund tokens hi junk minted : Integer) : Prop :=\n    isSuccessful (typedAuction validator (newBidAttackContext old proposed locked refund tokens hi junk minted))\n  def auditDouble (validator : Data → State) (bid paid tokens lo : Integer) : Prop :=\n    isSuccessful (typedAuction validator (payoutDoubleSatContext bid paid tokens lo))\n  def auditAccepts (validator : Data → State) (ctx : CardanoLedgerApi.V3.Contexts.ScriptContext) : Prop :=\n    isSuccessful (typedAuction validator ctx)"
+    }
+  ],
+  "functions": {
+    "outbids": {
+      "arguments": [
+        {
+          "dataType": "#integer"
+        },
+        {
+          "dataType": "#integer"
+        }
+      ],
+      "compiledCode": "4a01010022337100040021",
+      "hash": {
+        "alg": "sha256",
+        "digest": "264d481d68647619542971000e727b145b21600e612476ea09841dce094752a8"
+      },
+      "plutusVersion": "v3",
+      "result": {
+        "dataType": "#boolean"
+      },
+      "serialization": "cbor-flat"
+    }
+  },
+  "languages": {
+    "ual": {
+      "name": "Universal Annotation Language",
+      "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+      "version": "1.0"
+    }
+  },
+  "preamble": {
+    "authors": [
+      "Plutus contributors"
+    ],
+    "created": "2026-10-06",
+    "title": "Auction with detached specification",
+    "version": "1.0.0"
+  },
+  "properties": [
+    {
+      "checkingContext": "first_bid_exact",
+      "id": "first_bid_exact",
+      "scope": {
+        "validators": [
+          "auction"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀ (proposed locked tokens hi : Integer),\n      isSuccessful (bidScenario auction 0 proposed locked 0 tokens hi) ↔\n        101 ≤ proposed ∧ hi ≤ 1725227091000 ∧ locked = proposed ∧ tokens = 1",
+          "uses": [
+            "Example.Ual.Auction.FormalSpec"
+          ]
+        },
+        "text": "For the upstream no-previous-bid scenario, the minimum, deadline, locked Ada and NFT quantity characterize success."
+      }
+    }
+  ]
+}
