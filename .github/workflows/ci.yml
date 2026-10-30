@@ -16,10 +16,12 @@ jobs:
         include:
           - os: ubuntu-24.04
             platform: linux-x86_64
-          - os: macos-14
+          - os: macos-15
             platform: macos-arm64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '14.0'
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: leanprover/lean-action@fe408643ea7367d8c0404a8be3975bb145f5fb64
@@ -32,6 +34,9 @@ jobs:
           use-github-cache: 'false'
       - name: Build native Lean executables
         run: lake build cardano-blaster native-tests
+      - name: Check macOS deployment target
+        if: runner.os == 'macOS'
+        run: test "$(otool -l .lake/build/bin/cardano-blaster | awk '$1 == "minos" { print $2; exit }')" = '14.0'
       - name: Install locked solver and check metadata/report behavior
         run: |
           lake exe cardano-blaster setup
