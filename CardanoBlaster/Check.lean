@@ -1,4 +1,5 @@
 import CardanoBlaster.Frontend
+import CardanoBlaster.Counterexample
 
 namespace CardanoBlaster
 open Lean System
@@ -144,7 +145,7 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
     unless (← hashFile path) == originalHash do throw <| IO.userError s!"input artifact changed during verification: {path}"
   let (outcome, results) ← IO.ofExcept (classify (← readJson nativePath) expected
     (← hashFile checkedPath) (← hashFile checkedBlueprint) code)
-  record report "results" (.arr results)
+  record report "results" (.arr (← Counterexample.exportSources run results))
   record report "checkedAssuranceSha256" (toJson (← hashFile checkedPath))
   record report "verifierReportSha256" (toJson (← hashFile nativePath))
   record report "verificationLogSha256" (toJson (← hashFile (run / "verification.log")))
@@ -167,9 +168,17 @@ def printResults (report : Json) : IO Unit := do
     let cex := result.getObjValD "counterexample"
     let replay := cex.getObjValD "replay"
     if let some status := optText replay "status" then IO.println s!"  replay: {terminalText status}"
-    for input in (replay.getObjValAs? (Array Json) "inputs").toOption.getD #[] do
-      let value := (input.getObjValD "value").compress
-      IO.println s!"  {terminalText (← text input "name")} = {terminalText (value.take 180)}"
+    let source := cex.getObjValD "source"
+    if optText source "status" == some "exported" then
+      IO.println s!"  Haskell: {← text report "artifacts"}/{← text (← field source "file") "uri"}"
+      for input in (← array (← field source "inputs")) do
+        IO.println s!"  {terminalText (← text input "name")} = {terminalText (← text input "expression")}"
+    else if let some reason := optText source "reason" then
+      IO.println s!"  Haskell unavailable: {terminalText reason}"
+    if optText source "status" != some "exported" then
+      for input in (replay.getObjValAs? (Array Json) "inputs").toOption.getD #[] do
+        let value := (input.getObjValD "value").compress
+        IO.println s!"  {terminalText (← text input "name")} = {terminalText (value.take 180)}"
   if let some error := optText report "error" then IO.eprintln s!"error: {terminalText error}"
   IO.println s!"{← text report "status"}; report: {← text report "artifacts"}/report.json"
 

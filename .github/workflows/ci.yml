@@ -42,7 +42,7 @@ jobs:
           lake exe cardano-blaster bundle dist/cardano-blaster
           mkdir -p relocated
           mv dist/cardano-blaster relocated/cardano-blaster
-      - name: Verify and replay with Python, Lean, Lake, Git and compilers blocked
+      - name: Verify, replay and export Haskell with development tools blocked
         run: lake exe native-tests integration "$PWD/relocated/cardano-blaster/bin/cardano-blaster" "$PWD/examples" "$PWD/cardano-blaster-results/integration"
       - name: Package standalone archive
         run: tar -C relocated -czf dist/cardano-blaster-${{ matrix.platform }}.tar.gz cardano-blaster

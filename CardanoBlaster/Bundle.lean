@@ -5,7 +5,8 @@ open Lean System
 
 private partial def copyModules (source target : FilePath) : IO Unit := do
   for entry in (← source.readDir) do
-    if entry.fileName == "Tests" || entry.fileName.startsWith "Tests." then continue
+    if entry.fileName == "Tests" || entry.fileName.startsWith "Tests." ||
+        entry.fileName.startsWith "CardanoBlasterTests." then continue
     if ← entry.path.isDir then
       copyModules entry.path (target / entry.fileName)
     else if entry.fileName.endsWith ".olean" || entry.fileName.endsWith ".olean.private" ||

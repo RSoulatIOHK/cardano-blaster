@@ -1,4 +1,5 @@
 import CardanoBlaster.Cli
+import CardanoBlasterTests
 
 open Lean System CardanoBlaster
 
@@ -12,6 +13,7 @@ private def nativeReport (results : Array Json) : Json := obj [
 private def result (outcome : String) : Json := obj [("property", toJson "p"), ("outcome", toJson outcome)]
 
 private def unit : IO Unit := do
+  Tests.Counterexample.run
   let classifyResults := fun results code => IO.ofExcept (classify (nativeReport results) #["p"] "aa" "bb" code)
   ensure ((← classifyResults #[] 0).1 == .inconclusive) "missing results cannot pass"
   ensure ((← classifyResults #[result "verified"] 1).1 == .error) "nonzero exit cannot pass"
@@ -88,7 +90,8 @@ private def integration (cli examples output : FilePath) : IO Unit := do
   IO.FS.createDirAll output
   let guards := output / "forbidden-tools"
   IO.FS.createDirAll guards
-  for name in ["python", "python3", "lean", "lake", "git", "cc", "c++", "gcc", "g++", "clang", "clang++"] do
+  for name in ["python", "python3", "lean", "lake", "git", "cc", "c++", "gcc", "g++", "clang", "clang++",
+      "ghc", "runghc", "runhaskell", "cabal", "stack", "nix", "nix-shell"] do
     let path := guards / name
     IO.FS.writeFile path "#!/bin/sh\nexit 97\n"
     discard <| IO.Process.run { cmd := "chmod", args := #["755", path.toString] }
@@ -111,6 +114,14 @@ private def integration (cli examples output : FilePath) : IO Unit := do
       ensure (optText replay "status" == some "confirmed") "compiled replay not confirmed"
       ensure ((replay.getObjValAs? Bool "propertyHolds").toOption == some false) "mutant holds"
       ensure (!(← array (← field replay "calls")).isEmpty) "replay did not reach compiled UPLC"
+      let source ← field cex "source"
+      ensure (optText source "status" == some "exported") s!"Haskell source missing: {source.compress}"
+      ensure (optText source "compilation" == some "not-run") "export claims unperformed compilation"
+      let file ← field source "file"
+      let folder : FilePath := ← text report "artifacts"
+      ensure ((← hashFile (folder / (← text file "uri"))) == (← text (← field file "hash") "digest")) "Haskell file digest differs"
+      if name == "auction-counterexample" then
+        ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
     reports := reports.push report
   let derived : FilePath := ← text reports[0]! "artifacts"
   reports := reports.push (← invoke cli (derived / "plutus.json") (derived / "assurance.json") output false 0)
@@ -143,6 +154,17 @@ unsafe def main (args : List String) : IO UInt32 := do
     | "--internal-frontend" :: _ => CardanoBlaster.dispatch args
     | ["unit"] => unit; return (0 : UInt32)
     | ["deadline", home] => deadline home; return (0 : UInt32)
+    | ["sources", summary, output] =>
+      let reports ← array (← readJson summary)
+      for i in [:reports.size] do
+        let report := reports[i]!
+        if optText report "status" == some "falsified" then
+          let folder := System.FilePath.mk output / s!"case-{i}"
+          IO.FS.createDirAll folder
+          let results ← Counterexample.exportSources folder (← array (← field report "results"))
+          let exported := results[0]!.getObjValD "counterexample" |>.getObjValD "source"
+          ensure (optText exported "status" == some "exported") exported.pretty
+      return (0 : UInt32)
     | ["integration", cli, examples, output] => integration cli examples output; return (0 : UInt32)
-    | _ => IO.eprintln "native-tests unit | deadline <home> | integration <cli> <examples> <output>"; return (3 : UInt32)
+    | _ => IO.eprintln "native-tests unit | deadline <home> | integration <cli> <examples> <output> | sources <summary> <output>"; return (3 : UInt32)
   catch error => IO.eprintln error.toString; return (1 : UInt32)

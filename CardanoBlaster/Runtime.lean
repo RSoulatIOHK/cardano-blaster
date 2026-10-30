@@ -4,7 +4,7 @@ import Std.Internal.Async.System
 namespace CardanoBlaster.Runtime
 open Lean System
 
-def version := "0.1.0"
+def version := "0.2.0"
 def lockSource : String := include_str "../runtime-lock.json"
 def lock : Json := (Json.parse lockSource).toOption.get!
 

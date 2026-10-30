@@ -10,6 +10,9 @@ require CardanoLedgerApi from git "https://github.com/input-output-hk/CardanoLed
 
 lean_lib CardanoBlaster
 
+lean_lib CardanoBlasterTests where
+  srcDir := "Tests"
+
 lean_exe «native-tests» where
   root := `Tests.Main
   supportInterpreter := true

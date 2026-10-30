@@ -82,6 +82,51 @@ Counterexample reconstruction and replay status remain separate from the SMT
 verdict. Verification uses SMT and the declared CEK step bounds; it does not
 reconstruct a Lean proof or establish ledger acceptance or CPU/memory budgets.
 
+## Haskell counterexamples
+
+A falsified property with a confirmed compiled replay automatically exports a
+Haskell module under the run's `counterexamples/` directory. The terminal shows
+the source file and the original input names with their Haskell expressions:
+
+```text
+falsified  first_bid_exact
+  replay: confirmed
+  Haskell: .../counterexamples/Counterexample0.hs
+  proposed = (100 :: Integer)
+  locked = (100 :: Integer)
+  tokens = (1 :: Integer)
+  hi = (0 :: Integer)
+```
+
+The module contains the SMT inputs and typed source arguments recovered before
+Data encoding. V3 `ScriptContext`, `TxInfo` and `ScriptInfo` values use the real
+Haskell `FromData` instances. Each exported context must match a replayed wire
+argument exactly; the generated `main` also checks `toData decoded == original`.
+It prints the reconstructed records when run with `plutus-ledger-api` available.
+Source generation itself runs entirely in the Lean CLI and needs no Haskell
+compiler or Python.
+
+To compile and run an exported module, use a GHC environment containing the
+Plutus project's `plutus-ledger-api` and `bytestring` packages:
+
+```sh
+ghc -package plutus-ledger-api -package bytestring /absolute/path/Counterexample0.hs -o replay-context
+./replay-context
+```
+
+`counterexample.source` in `report.json` records `status`, the Haskell file URI
+and SHA-256, input names/expressions, and the contexts' call targets and argument
+indices. `wireArgumentSha256` hashes the canonical portable Data JSON from the
+verifier (`wireArgumentEncoding: tocex-json-v1`). The original verifier report
+is preserved and its digest is also recorded.
+
+`compilation: not-run` distinguishes source export from compiling or running the
+Haskell module. The CLI confirms execution through UPLC replay. Unknown source
+types, incomplete values, unfinished replay and mismatched contexts produce
+`source.status: unavailable` with a reason; the SMT verdict remains unchanged.
+Supported source values include integers, naturals, booleans, strings, bytes,
+unit, lists, pairs, options, Plutus Data and the three explicit V3 codecs above.
+
 ```sh
 cardano-blaster check plutus.json assurance.json --property outbids_exact --refresh-environment
 cardano-blaster check plutus.json assurance.json --json --output results
@@ -116,10 +161,11 @@ includes Z3. Source runs also check that dependency checkouts are clean and matc
 their exact pinned revisions. No adjacent repository clones are required.
 
 All CLI and test code is Lean 4. The integration tests run the relocated native
-bundle from another directory with failing stubs for Python, Lean, Lake, Git and
-C/C++ compilers on `PATH`. They verify 44 true properties, confirm both typed
+bundle from another directory with failing stubs for Python, Lean, Lake, Git,
+GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 44 true properties, confirm both typed
 counterexamples against compiled UPLC, recheck a bound context without refreshing,
-and exercise invalid input, unsupported claims and timeout behavior.
+export both Haskell counterexamples with bound file hashes, and exercise invalid
+input, unsupported claims, mismatched/incomplete source values and timeout behavior.
 
 When updating dependencies, change the Lake requirements, manifest and runtime
 lock together, then rerun the native integration suite.
