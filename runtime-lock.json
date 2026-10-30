@@ -10,7 +10,7 @@
     {
       "name": "PlutusCore",
       "url": "https://github.com/input-output-hk/PlutusCoreBlaster",
-      "rev": "8ceb98c71a279a2796bbffe26720a454971fdddc"
+      "rev": "eed6584454a5c76de20f5b316fea203553d38452"
     },
     {
       "name": "CardanoLedgerApi",

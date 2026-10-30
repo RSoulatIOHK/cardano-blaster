@@ -1,10 +1,5 @@
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
 .lake/
-.runtime-cache/
-build/
 dist/
+relocated/
 cardano-blaster-results/
 .DS_Store

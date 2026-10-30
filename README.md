@@ -1,131 +1,125 @@
 # cardano-blaster
 
-Check a compiled Plutus blueprint and its assurance document:
+A native Lean 4 CLI for checking a compiled Plutus blueprint and its assurance:
 
 ```sh
 cardano-blaster check plutus.json assurance.json
 ```
 
-This repository owns the CLI and pins the Lean libraries it uses to exact Git
-commits. Those commits can be on open pull requests: installing this tool does
-not depend on their merge status. The command runs the existing
-`#verify_blueprint` checker, with typed counterexample reconstruction and native
-replay when supported by the property.
+The executable embeds Lean's elaborator and the existing `#verify_blueprint`
+checker. It runs Blaster directly and reconstructs and replays supported typed
+counterexamples. There is no Python wrapper or invocation of `lean` or `lake`
+during verification with a native distribution.
 
-## Install
+## Native distribution
 
-Prerequisites: Python 3.10+, Git, [elan](https://github.com/leanprover/elan),
-and a C/C++ toolchain for Lean's native libraries (Xcode command line tools on
-macOS; `build-essential` on Ubuntu). The locked Z3 binaries support macOS 13.3+
-on Apple Silicon/Intel, Linux x86-64 with glibc 2.39+, and Linux ARM64 with
-glibc 2.38+.
+The [releases](https://github.com/RSoulatIOHK/cardano-blaster/releases) provide
+archives for Linux x86-64 and macOS ARM64, with SHA-256 checksums. Publication
+requires the native integration tests to pass on both platforms. Download the
+archive and matching `.sha256` file, verify it, and extract it:
 
 ```sh
-git clone https://github.com/RSoulatIOHK/cardano-blaster.git
-cd cardano-blaster
-python3 -m venv .venv
-.venv/bin/python -m pip install -e .
-source .venv/bin/activate
-cardano-blaster setup
+shasum -a 256 -c cardano-blaster-PLATFORM.tar.gz.sha256
+tar -xzf cardano-blaster-PLATFORM.tar.gz
+./cardano-blaster/bin/cardano-blaster --version
+./cardano-blaster/bin/cardano-blaster check plutus.json assurance.json
 ```
 
-Setup fetches and builds the exact Lean dependencies and downloads the official
-Z3 5.3.1 binary after checking its pinned archive SHA-256. The Lean toolchain is
-4.24.0. The first build takes several minutes. No Haskell compiler, Nix setup,
-or adjacent repository clone is needed to check compiled bundles.
+Keep the extracted directory together. It contains the compiled executable, the
+Lean modules needed to elaborate claims, and Z3. Running it requires no Python,
+Git, installed Lean/Lake, or C/C++ compiler. Linux binaries target Ubuntu 24.04
+(glibc 2.39+); macOS binaries target Apple Silicon with macOS 14+.
 
-The runtime and solver live in `~/Library/Caches/cardano-blaster` on macOS and
-`${XDG_CACHE_HOME:-~/.cache}/cardano-blaster` on Linux. Set
-`CARDANO_BLASTER_CACHE` to choose another location. Runtime caches are keyed by
-the complete lock and project files. Installed wheels include those files too.
+The distribution checks its runtime file inventory before and after verification.
+The three libraries are pinned to exact commits, including commits on open PRs;
+installation does not depend on their merge status. The [runtime lock](runtime-lock.json)
+and [Lake manifest](lake-manifest.json) record the complete selection.
 
 ## Replay the examples
 
+The archive includes the compiled examples:
+
 ```sh
-cardano-blaster check examples/game/plutus.json examples/game/assurance.json --refresh-environment
-cardano-blaster check examples/auction/plutus.json examples/auction/assurance.json --refresh-environment
-cardano-blaster check examples/helper-counterexample/plutus.json examples/helper-counterexample/assurance.json --refresh-environment
+cd cardano-blaster
+bin/cardano-blaster check examples/game/plutus.json examples/game/assurance.json --refresh-environment
+bin/cardano-blaster check examples/auction/plutus.json examples/auction/assurance.json --refresh-environment
+bin/cardano-blaster check examples/helper-counterexample/plutus.json examples/helper-counterexample/assurance.json --refresh-environment
 ```
 
-The first two verify 3 and 31 properties. The third deliberately changes
-`old < proposed` to `old > proposed`: it exits with code 1, shows a typed
-counterexample, and reports whether replay confirmed it against compiled UPLC.
-`examples/auction-counterexample` similarly changes the minimum bid from 100 to
-101 in the claim. `examples/parameters` covers native/Data parameters and their
-application; `examples/recursive` covers a recursive Tree schema. See
+Game and Auction verify 3 and 31 properties. The helper counterexample deliberately
+reverses a comparison in a formal claim, leaving the compiled helper unchanged.
+It exits with code 1 and reports a typed witness and compiled replay status.
+`examples/auction-counterexample` changes the claimed minimum bid from 100 to 101.
+`examples/parameters` covers native/Data encoding and applied parameters;
+`examples/recursive` covers a recursive Tree schema. See
 [example provenance](examples/README.md).
 
-`--refresh-environment` explicitly creates new checking contexts for this
-installation. It preserves the original inputs and rechecks the same claims.
-Without that flag, the checker requires the environment bound by the input
-contexts to match the loaded checker, including module and solver digests.
-Example contexts come from the original producer run, so use the flag when
-replaying them on another installation. A fresh check does not validate historical
-evidence for an older context.
+`--refresh-environment` creates derived checking contexts for this installation
+and performs fresh verification. It preserves the original inputs, claims,
+execution bounds and parameter bytes. Example contexts were captured in the
+producer's environment, so use the flag when replaying them elsewhere. Without
+it, the checker requires the bound environment to match the loaded executable,
+modules and solver exactly. Historical evidence never substitutes for a fresh
+successful check.
 
 ## Results
 
-Each invocation creates a fresh directory under `cardano-blaster-results/` with
-`report.json`, `verification.log`, the Lean driver, the verifier's bound JSON
-report, and derived input snapshots. Original input files are never overwritten.
-Reports bind the checked blueprint, assurance, checking contexts, parameter
-artifacts, runtime revisions, and solver by their digests. The pinned runtime is
-checked for source or revision drift before and after verification.
+Each invocation creates a fresh directory under `cardano-blaster-results/`,
+containing `report.json`, `verification.log`, the generated Lean driver,
+the verifier's JSON report and derived input snapshots. No old success is reused.
+Reports bind the original and checked inputs, contexts, applied parameter
+artifacts, executable, dependency revisions and solver by their digests.
 
 | Exit code | Meaning |
 | --- | --- |
 | 0 | Every selected property was verified |
 | 1 | At least one property was falsified |
 | 2 | No falsification, but verification is inconclusive or a property was not checked |
-| 3 | Invalid input, environment mismatch, build/process error or interruption |
+| 3 | Invalid input, incompatible environment, timeout or execution error |
 
 Natural-language-only and unsupported statements do not count as verified.
-Counterexample reconstruction and replay status are reported separately from
-the SMT verdict. An unavailable reconstruction does not erase a falsification.
-
-Useful options:
+Counterexample reconstruction and replay status remain separate from the SMT
+verdict. Verification uses SMT and the declared CEK step bounds; it does not
+reconstruct a Lean proof or establish ledger acceptance or CPU/memory budgets.
 
 ```sh
 cardano-blaster check plutus.json assurance.json --property outbids_exact --refresh-environment
 cardano-blaster check plutus.json assurance.json --json --output results
 ```
 
-`--property ID` can be repeated. `--json` prints only the final report on stdout.
-`--timeout SECONDS` bounds each build/check process. Interruption terminates the
-verifier and its solver children together on POSIX systems. `--no-build` reuses
-the prepared runtime. `--profile auto` selects fixed Core/Cardano V3 imports
-from the digest-checked input environment. Use `--profile cardano-v3-cex` for a
-producer placeholder environment that does not yet list its required modules.
+`--property ID` is repeatable. `--json` prints only the final report on stdout.
+`--timeout SECONDS` bounds each verification worker and terminates its solver
+processes on expiry. `--profile auto` selects fixed Core/Cardano V3 imports from
+the digest-checked environment. `--profile cardano-v3-cex` can be selected for a
+producer placeholder that does not yet list its required modules. `--z3 PATH`
+selects another solver and is recorded as an override.
 
-For library development, `--project PATH` selects a custom Lake project and
-`--z3 PATH` selects another solver. Reports explicitly mark these overrides;
-they do not claim the default pinned configuration was used.
+## Build from source
 
-Verification uses Blaster SMT and the declared CEK step bounds. It does not
-reconstruct a Lean proof or establish ledger acceptance or CPU/memory budgets.
-
-## Pinned dependencies
-
-The source of truth is [the runtime lock](cardano_blaster/runtime/lock.json),
-alongside the committed Lake project and manifest. All three packages are direct
-requirements, so a transitive dependency cannot silently choose another revision.
-
-| Library | Commit |
-| --- | --- |
-| Lean-blaster | `1cb5a63e0416f336caa3104c2654718e6f971bc9` |
-| PlutusCoreBlaster | `8ceb98c71a279a2796bbffe26720a454971fdddc` |
-| CardanoLedgerApiBlaster | `5492bb0d8e5ee01587303c153440636e5f8ee933` |
-
-Update the lock, Lake requirements and manifest together, then run the complete
-integration suite. There are no floating branches or local path dependencies.
-
-## Development
+Developers need Git, elan and a C/C++ toolchain (Xcode command line tools on macOS;
+`build-essential` on Ubuntu). Lean's native backend uses that toolchain to build
+the executable. It is not needed when using a precompiled archive.
 
 ```sh
-python -m unittest discover -s tests -p 'test_*.py'
-python tests/integration.py
+git clone https://github.com/RSoulatIOHK/cardano-blaster.git
+cd cardano-blaster
+lake build cardano-blaster native-tests
+lake exe cardano-blaster setup
+lake exe native-tests unit
+lake exe cardano-blaster bundle dist/cardano-blaster
+lake exe native-tests integration "$PWD/dist/cardano-blaster/bin/cardano-blaster" "$PWD/examples" "$PWD/cardano-blaster-results/integration"
 ```
 
-The integration suite uses the installed CLI and compiled examples, including
-both deliberately false claims and a strict recheck of a newly bound context.
-It requires `cardano-blaster setup` first.
+`setup` downloads the official Z3 5.3.1 release after checking the archive's pinned
+SHA-256. This source-build setup uses `curl` and `unzip`; the native archive already
+includes Z3. Source runs also check that dependency checkouts are clean and match
+their exact pinned revisions. No adjacent repository clones are required.
+
+All CLI and test code is Lean 4. The integration tests run the relocated native
+bundle from another directory with failing stubs for Python, Lean, Lake, Git and
+C/C++ compilers on `PATH`. They verify 44 true properties, confirm both typed
+counterexamples against compiled UPLC, recheck a bound context without refreshing,
+and exercise invalid input, unsupported claims and timeout behavior.
+
+When updating dependencies, change the Lake requirements, manifest and runtime
+lock together, then rerun the native integration suite.
