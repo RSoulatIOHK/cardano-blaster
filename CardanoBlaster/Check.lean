@@ -173,6 +173,8 @@ def printResults (report : Json) : IO Unit := do
       IO.println s!"  Haskell: {← text report "artifacts"}/{← text (← field source "file") "uri"}"
       for input in (← array (← field source "inputs")) do
         IO.println s!"  {terminalText (← text input "name")} = {terminalText (← text input "expression")}"
+      for context in (← array (← field source "contexts")) do
+        IO.println s!"  {terminalText (← text context "identifier")} :: {terminalText (← text context "sourceType")}"
     else if let some reason := optText source "reason" then
       IO.println s!"  Haskell unavailable: {terminalText reason}"
     if optText source "status" != some "exported" then

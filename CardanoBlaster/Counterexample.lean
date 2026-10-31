@@ -1,4 +1,4 @@
-import CardanoBlaster.Json
+import CardanoBlaster.SourceValue
 
 namespace CardanoBlaster.Counterexample
 open Lean System
@@ -115,7 +115,7 @@ private partial def expression (j : Json) : Except String Expression := do
   | "encoded" =>
     unless (← str j "encoding") == "plutus-data" do throw "unsupported source encoding"
     let ty ← sourceType (← str j "type")
-    return ⟨"(decodeData @" ++ ty ++ " (" ++ (← plutusData (← get j "value")) ++ "))", .atom ty⟩
+    return ⟨(← SourceValue.render plutusData bytes (← str j "type") (← get j "value")), .atom ty⟩
   | "constructor" =>
     let ty ← str j "type"
     let ctor ← str j "constructor"
@@ -152,6 +152,20 @@ private partial def usesBytes (value : Json) : Bool :=
   ((value.getObjValAs? (Array Json) "fields").toOption.getD #[]).any (usesBytes ∘ (·.getObjValD "value")) ||
   (optText value "kind" == some "encoded" && usesBytes (value.getObjValD "value"))
 
+private def identifier (raw fallback : String) (used : Array String) : String := Id.run do
+  let keywords := ["case", "class", "data", "default", "deriving", "do", "else", "foreign", "if", "import",
+    "in", "infix", "infixl", "infixr", "instance", "let", "module", "newtype", "of", "then", "type", "where",
+    "main", "inputs", "property", "_", "qualified", "as", "hiding", "forall", "family", "pattern"]
+  let valid := raw.toList.head?.any (fun c => 'a' ≤ c && c ≤ 'z' || c == '_') &&
+    raw.toList.all (fun c => c.isAlphanum || c == '_' || c == '\'') && !keywords.contains raw
+  let base := if valid then raw else fallback
+  let mut name := base
+  let mut index := 1
+  while used.contains name do
+    name := s!"{base}_{index}"
+    index := index + 1
+  return name
+
 /-- Construct source only from a confirmed replay and complete typed values.
 Never infer a source type from the wire encoding or a Lean display name. -/
 def prepare (result : Json) : Except String (String × Json) := do
@@ -165,18 +179,19 @@ def prepare (result : Json) : Except String (String × Json) := do
   let mut inputs : Array Json := #[]
   let mut needsLedger := false
   let mut needsBytes := false
+  let mut used : Array String := #[]
   for i in [:bindings.size] do
     let binding := bindings[i]!
     let typed ← completeValue binding
     let value ← haskell typed
     needsLedger := needsLedger || usesLedger typed
     needsBytes := needsBytes || usesBytes typed
-    let name := s!"input{i}"
+    let name := identifier (← str binding "name") s!"input{i}" used
+    used := used.push name
     declarations := declarations.push s!"{name} = {value}\n"
     inputs := inputs.push (obj [("name", toJson (← str binding "name")), ("identifier", toJson name),
       ("leanType", toJson (← str binding "leanType")), ("expression", toJson value)])
   let mut contexts : Array Json := #[]
-  let mut checks : Array String := #[]
   let mut seen : Array (Nat × Json) := #[]
   let calls ← arr replay "calls"
   for callIndex in [:calls.size] do
@@ -198,24 +213,26 @@ def prepare (result : Json) : Except String (String × Json) := do
       seen := seen.push (callIndex, value)
       needsLedger := true
       needsBytes := needsBytes || usesBytes value
-      let name := s!"context{contexts.size}"
-      declarations := declarations.push s!"{name} :: {ty}\n{name} = {← haskell value}\n\n{name}Data :: V3.Data\n{name}Data = {← plutusData wire}\n"
-      checks := checks.push s!"V3.toData {name} == {name}Data"
+      let name := identifier (← str binding "name") s!"context{contexts.size}" used
+      used := used.push name
+      let expression ← haskell value
+      let indented := String.intercalate "\n" (expression.splitOn "\n" |>.map ("  " ++ ·))
+      declarations := declarations.push s!"{name} :: {ty}\n{name} =\n{indented}\n"
       contexts := contexts.push (obj [("identifier", toJson name), ("sourceType", toJson (← str value "type")),
+        ("name", toJson (← str binding "name")), ("expression", toJson expression),
         ("callIndex", toJson callIndex), ("target", toJson (← str call "target")),
         ("argumentIndices", toJson argumentIndices), ("wireArgumentEncoding", toJson "tocex-json-v1"),
         ("wireArgumentSha256", toJson (hashBytes wire.compress.toUTF8))])
   let body := String.intercalate "\n" declarations.toList
-  let imports := (if needsBytes then "import qualified Data.ByteString as BS\n" else "") ++
-    (if needsLedger then "import qualified PlutusLedgerApi.V3 as V3\n\ndecodeData :: V3.FromData a => V3.Data -> a\ndecodeData d = case V3.fromData d of\n  Just value -> value\n  Nothing -> error \"Counterexample source decode failed\"\n" else "")
+  let imports := "import Prelude\nimport qualified Prelude as P\n" ++
+    (if needsBytes then "import qualified Data.ByteString as BS\n" else "") ++
+    (if needsLedger then "import qualified PlutusLedgerApi.V3 as V3\n" ++ SourceValue.imports else "")
   let inputStrings := inputs.toList.map fun input =>
     "(" ++ quote ((str input "name").toOption.get!) ++ ", " ++ quote ((str input "expression").toOption.get!) ++ ")"
-  let display := contexts.toList.map fun ctx => "    print " ++ (str ctx "identifier").toOption.get! ++ "\n"
-  let main := if checks.isEmpty then "main = mapM_ print inputs\n" else
-    "main = if " ++ String.intercalate " && " checks.toList ++ "\n  then do\n" ++
-      "    putStrLn \"PASS Haskell source decode and exact Data round trip\"\n" ++ String.join display ++
-      "    mapM_ print inputs\n  else error \"Reconstructed source differs from the replayed argument\"\n"
-  let source := "{-# LANGUAGE TypeApplications #-}\nmodule Main where\n" ++ imports ++
+  let display := contexts.toList.map fun ctx => "    P.print " ++ (str ctx "identifier").toOption.get! ++ "\n"
+  let main := if contexts.isEmpty then "main = P.mapM_ P.print inputs\n" else
+    "main = do\n" ++ String.join display ++ "    P.mapM_ P.print inputs\n"
+  let source := "{-# LANGUAGE DisambiguateRecordFields #-}\n-- Source values for a confirmed UPLC counterexample.\n-- Exact wire arguments and replay evidence are in verifier-report.json.\nmodule Main where\n" ++ imports ++
     "\nproperty :: String\nproperty = " ++ quote (← str result "property") ++ "\n\n" ++ body ++
     "\ninputs :: [(String, String)]\ninputs = [" ++ String.intercalate ", " inputStrings ++ "]\n\nmain :: IO ()\n" ++ main
   return (source, obj [("status", toJson "exported"), ("language", toJson "haskell"),
@@ -228,8 +245,8 @@ def exportSources (run : FilePath) (results : Array Json) : IO (Array Json) := d
     let info ← match prepare result with
       | .error reason => pure <| obj [("status", toJson "unavailable"), ("language", toJson "haskell"), ("reason", toJson reason)]
       | .ok (source, info) => do
-        -- Neither property identifiers nor source binder names become paths or
-        -- Haskell identifiers. Both can contain arbitrary producer text.
+        -- Property identifiers never become paths. Source binder names are
+        -- preserved when valid and disambiguated before becoming identifiers.
         IO.FS.createDirAll (run / "counterexamples")
         let relative := s!"counterexamples/Counterexample{i}.hs"
         IO.FS.writeFile (run / relative) source

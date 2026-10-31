@@ -98,19 +98,32 @@ falsified  first_bid_exact
   hi = (0 :: Integer)
 ```
 
-The module contains the SMT inputs and typed source arguments recovered before
-Data encoding. V3 `ScriptContext`, `TxInfo` and `ScriptInfo` values use the real
-Haskell `FromData` instances. Each exported context must match a replayed wire
-argument exactly; the generated `main` also checks `toData decoded == original`.
-It prints the reconstructed records when run with `plutus-ledger-api` available.
-Source generation itself runs entirely in the Lean CLI and needs no Haskell
-compiler or Python.
+The module preserves valid input names (`proposed`, `locked`, etc.) and renders
+typed arguments as actual Haskell records, sums and newtypes. For example,
+`ctx :: V3.ScriptContext` contains `scriptContextTxInfo = V3.TxInfo { ... }`,
+with named fields such as `txInfoInputs` and `txInfoOutputs`. It does not wrap
+a serialized context in `decodeData`, or duplicate it as a raw Data literal.
+Invalid or colliding Haskell identifiers receive a safe replacement or suffix;
+the original name remains in the JSON report.
+
+The ledger type graph is reflected from the actual Haskell definitions in
+`plutus-ledger-api-1.72.0.0`. Constructor tags come from its `ToData` instances,
+not declaration order or blueprint display titles. The graph is embedded in the
+Lean CLI; checking and source generation need no GHC or Python. Fields whose
+actual Haskell type is `BuiltinData` remain Data: without an explicit source type
+mapping, the tool cannot claim that a datum or redeemer is a particular contract
+type. Arbitrary user-defined Haskell type reconstruction is not yet supported.
+
+Each exported context must match a replayed wire argument exactly. The complete
+wire value and confirmed UPLC replay remain in `verifier-report.json`; the
+generated `main` prints the typed values. Haskell compilation and codec round
+trips are separate developer validation, not an extra proof performed by `check`.
 
 To compile and run an exported module, use a GHC environment containing the
 Plutus project's `plutus-ledger-api` and `bytestring` packages:
 
 ```sh
-ghc -package plutus-ledger-api -package bytestring /absolute/path/Counterexample0.hs -o replay-context
+ghc -package plutus-ledger-api -package plutus-tx -package bytestring /absolute/path/Counterexample0.hs -o replay-context
 ./replay-context
 ```
 

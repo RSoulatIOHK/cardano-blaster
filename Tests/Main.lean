@@ -118,10 +118,14 @@ private def integration (cli examples output : FilePath) : IO Unit := do
       ensure (optText source "status" == some "exported") s!"Haskell source missing: {source.compress}"
       ensure (optText source "compilation" == some "not-run") "export claims unperformed compilation"
       let file ← field source "file"
+      let hs ← IO.FS.readFile ((← string (← field report "artifacts")) / (← text file "uri") : System.FilePath)
+      ensure ((hs.splitOn "decodeData").length == 1) "source witness is a Data wrapper"
       let folder : FilePath := ← text report "artifacts"
       ensure ((← hashFile (folder / (← text file "uri"))) == (← text (← field file "hash") "digest")) "Haskell file digest differs"
       if name == "auction-counterexample" then
         ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
+        for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "txInfoOutputs ="] do
+          ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
     reports := reports.push report
   let derived : FilePath := ← text reports[0]! "artifacts"
   reports := reports.push (← invoke cli (derived / "plutus.json") (derived / "assurance.json") output false 0)
@@ -153,6 +157,24 @@ unsafe def main (args : List String) : IO UInt32 := do
     match args with
     | "--internal-frontend" :: _ => CardanoBlaster.dispatch args
     | ["unit"] => unit; return (0 : UInt32)
+    | ["codecs", fixtures, output] =>
+      let fixtures ← array (← readJson fixtures)
+      let mut declarations := ""
+      let mut checks : Array String := #[]
+      for i in [:fixtures.size] do
+        let f := fixtures[i]!
+        let ty ← text f "type"
+        let wire ← field f "wire"
+        let value ← IO.ofExcept <| (SourceValue.render Counterexample.plutusData
+          (fun b => Counterexample.haskell b) ty wire).mapError (fun e => s!"codec {i} ({ty}): {e}")
+        let indented := String.intercalate "\n" (value.splitOn "\n" |>.map ("  " ++ ·))
+        declarations := declarations ++ s!"value{i} :: {SourceValue.typeName ty}\nvalue{i} =\n{indented}\n\n"
+        checks := checks.push s!"V3.toData value{i} == {← IO.ofExcept (Counterexample.plutusData wire)}"
+      IO.FS.writeFile output <| "{-# LANGUAGE DisambiguateRecordFields #-}\nmodule Main where\n" ++
+        "import qualified Data.ByteString as BS\nimport qualified PlutusLedgerApi.V3 as V3\n" ++
+        SourceValue.imports ++ "\n" ++ declarations ++ "main :: IO ()\nmain = if " ++
+        String.intercalate " &&\n  " checks.toList ++ s!"\n  then putStrLn \"PASS {fixtures.size} Haskell codec round trips\"\n  else error \"Haskell codec mismatch\"\n"
+      return (0 : UInt32)
     | ["deadline", home] => deadline home; return (0 : UInt32)
     | ["sources", summary, output] =>
       let reports ← array (← readJson summary)
@@ -166,5 +188,5 @@ unsafe def main (args : List String) : IO UInt32 := do
           ensure (optText exported "status" == some "exported") exported.pretty
       return (0 : UInt32)
     | ["integration", cli, examples, output] => integration cli examples output; return (0 : UInt32)
-    | _ => IO.eprintln "native-tests unit | deadline <home> | integration <cli> <examples> <output> | sources <summary> <output>"; return (3 : UInt32)
+    | _ => IO.eprintln "native-tests unit | deadline <home> | integration <cli> <examples> <output> | sources <summary> <output> | codecs <fixtures.json> <output.hs>"; return (3 : UInt32)
   catch error => IO.eprintln error.toString; return (1 : UInt32)
