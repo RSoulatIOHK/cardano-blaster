@@ -57,11 +57,47 @@
       "originalAssuranceSha256": "692e4db689e1c8f7107487c266c3fca1eaddbc21be463f093cdbd5a47b6a84af",
       "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
       "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    },
+    "purpose-isolation": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "4a879883bcd82c288d828a6377d8d752e1cb1b7c"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "561df8fd0466eba590e7f1d74b5f573a6dc0a76a",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+      "blueprintSha256": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14",
+      "assuranceSha256": "cef9d397dea8eeefafcf8f4d07956f6411dce317b7fa820900b6d7aa0d57c465",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 5,
+      "originalAssuranceSha256": "b448b7e80eb873ccb299bba81e32bfb6d752e675f23143b8e223e5cdc2cefca4",
+      "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
+    },
+    "purpose-isolation-counterexample": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "4a879883bcd82c288d828a6377d8d752e1cb1b7c"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "561df8fd0466eba590e7f1d74b5f573a6dc0a76a",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+      "blueprintSha256": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14",
+      "assuranceSha256": "cabe28cc5bf98f923860ebd163e7fa16deef2de14c8afa81083da6ad9dfa00f0",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 1,
+      "originalAssuranceSha256": "b448b7e80eb873ccb299bba81e32bfb6d752e675f23143b8e223e5cdc2cefca4",
+      "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
     }
   },
   "mutations": {
     "helper-counterexample": "Reverse the outbids_exact comparison from < to > in the claim; preserve compiled UPLC.",
     "auction-counterexample": "Raise the first_bid_exact minimum from 100 to 101 in the claim; preserve compiled UPLC."
   },
-  "packaging": "Compact environment JSON; remove unused checking-context entries from the two single-property counterexample bundles; recompute affected SHA-256 references. Compiled code and all claims unchanged."
+  "packaging": "Compact environment JSON; remove unused checking-context entries from single-property counterexample bundles; recompute affected SHA-256 references. Compiled code and all claims unchanged."
 }

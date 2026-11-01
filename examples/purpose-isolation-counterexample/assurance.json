@@ -1,0 +1,59 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+  "blueprint": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14"
+    },
+    "uri": "plutus.json"
+  },
+  "checkingContexts": {
+    "uncheckedPurpose_purpose_isolation": {
+      "uri": "checking-uncheckedPurpose_purpose_isolation.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "e895888415870d897e15270ef289404608cdb594b51764f95adb38667bf6034e"
+      }
+    }
+  },
+  "definitions": {
+    "BuiltinData": {},
+    "Integer": {
+      "dataType": "integer"
+    }
+  },
+  "functions": {},
+  "languages": {
+    "ual": {
+      "name": "Universal Annotation Language",
+      "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+      "version": "1.0"
+    }
+  },
+  "preamble": {
+    "authors": [
+      "Plutus contributors"
+    ],
+    "created": "2026-11-01",
+    "title": "Purpose isolation examples",
+    "version": "1.0.0"
+  },
+  "properties": [
+    {
+      "checkingContext": "uncheckedPurpose_purpose_isolation",
+      "id": "uncheckedPurpose_purpose_isolation",
+      "scope": {
+        "validators": [
+          "uncheckedPurpose"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («uncheckedPurpose»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+        },
+        "text": "The compiled script rejects every purpose outside {spend}."
+      }
+    }
+  ]
+}

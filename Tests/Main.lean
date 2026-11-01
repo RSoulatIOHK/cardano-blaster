@@ -97,7 +97,9 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     discard <| IO.Process.run { cmd := "chmod", args := #["755", path.toString] }
   let mut reports : Array Json := #[]
   for (name, code, count) in [("game", 0, 3), ("parameters", 0, 6), ("recursive", 0, 4),
-      ("auction", 0, 31), ("helper-counterexample", 1, 1), ("auction-counterexample", 1, 1)] do
+      ("auction", 0, 31), ("purpose-isolation", 0, 5),
+      ("helper-counterexample", 1, 1), ("auction-counterexample", 1, 1),
+      ("purpose-isolation-counterexample", 1, 1)] do
     let report ← invoke cli (examples / name / "plutus.json") (examples / name / "assurance.json") output true code
     let results ← array (← field report "results")
     ensure (results.size == count) "missing property outcomes"
@@ -126,6 +128,11 @@ private def integration (cli examples output : FilePath) : IO Unit := do
         ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
         for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "txInfoOutputs ="] do
           ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
+      if name == "purpose-isolation-counterexample" then
+        ensure (!(← array (← field source "contexts")).isEmpty) "typed purpose-isolation context missing"
+        for token in [":: V3.ScriptContext", "scriptContextScriptInfo ="] do
+          ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
+        ensure ((hs.splitOn "V3.SpendingScript").length == 1) "witness uses an allowed spending purpose"
     reports := reports.push report
   let derived : FilePath := ← text reports[0]! "artifacts"
   reports := reports.push (← invoke cli (derived / "plutus.json") (derived / "assurance.json") output false 0)
@@ -150,7 +157,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     reports := reports.push report
   finally IO.FS.writeFile readme original
   writeJson (output / "summary.json") (.arr reports)
-  IO.println "44 true properties, 2 typed/replayed CEX, strict replay and failure cases passed with native Lean."
+  IO.println "49 true properties, 3 typed/replayed CEX, strict replay and failure cases passed with native Lean."
 
 unsafe def main (args : List String) : IO UInt32 := do
   try

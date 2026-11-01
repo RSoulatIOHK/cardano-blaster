@@ -1,0 +1,151 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+  "blueprint": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14"
+    },
+    "uri": "plutus.json"
+  },
+  "checkingContexts": {
+    "spendingOnly_purpose_isolation": {
+      "uri": "checking-spendingOnly_purpose_isolation.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "e3daa04f59a4493625f7386f8147808087a7207bc70c18647c8ebeb7427774bf"
+      }
+    },
+    "spendingAndMinting_purpose_isolation": {
+      "uri": "checking-spendingAndMinting_purpose_isolation.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "93f835dc7ca326b6d0a8a95b51389274d14841d1be9edb3ff4ebe1ee0a324a27"
+      }
+    },
+    "parameterizedSpending_purpose_isolation": {
+      "uri": "checking-parameterizedSpending_purpose_isolation.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "31f41c3c53cbd275b2f459de1948b402fec1f98a73dc0cc8e4ccb3a861d4e341"
+      }
+    },
+    "spending_accepted": {
+      "uri": "checking-spending_accepted.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "e3daa04f59a4493625f7386f8147808087a7207bc70c18647c8ebeb7427774bf"
+      }
+    },
+    "minting_accepted": {
+      "uri": "checking-minting_accepted.json",
+      "hash": {
+        "alg": "sha256",
+        "digest": "93f835dc7ca326b6d0a8a95b51389274d14841d1be9edb3ff4ebe1ee0a324a27"
+      }
+    }
+  },
+  "definitions": {
+    "BuiltinData": {},
+    "Integer": {
+      "dataType": "integer"
+    }
+  },
+  "functions": {},
+  "languages": {
+    "ual": {
+      "name": "Universal Annotation Language",
+      "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+      "version": "1.0"
+    }
+  },
+  "preamble": {
+    "authors": [
+      "Plutus contributors"
+    ],
+    "created": "2026-11-01",
+    "title": "Purpose isolation examples",
+    "version": "1.0.0"
+  },
+  "properties": [
+    {
+      "checkingContext": "spendingOnly_purpose_isolation",
+      "id": "spendingOnly_purpose_isolation",
+      "scope": {
+        "validators": [
+          "spendingOnly"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingOnly»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+        },
+        "text": "The compiled script rejects every purpose outside {spend}."
+      }
+    },
+    {
+      "checkingContext": "spendingAndMinting_purpose_isolation",
+      "id": "spendingAndMinting_purpose_isolation",
+      "scope": {
+        "validators": [
+          "spendingAndMinting"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => True\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingAndMinting»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+        },
+        "text": "The compiled script rejects every purpose outside {spend, mint}."
+      }
+    },
+    {
+      "checkingContext": "parameterizedSpending_purpose_isolation",
+      "id": "parameterizedSpending_purpose_isolation",
+      "scope": {
+        "validators": [
+          "parameterizedSpending"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀ parameter0 (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («parameterizedSpending» parameter0 (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+        },
+        "text": "The compiled script rejects every purpose outside {spend}."
+      }
+    },
+    {
+      "checkingContext": "spending_accepted",
+      "id": "spending_accepted",
+      "scope": {
+        "validators": [
+          "spendingOnly"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀ (ctx : ScriptContext),\n      (match ctx.scriptContextScriptInfo with | .SpendingScript _ _ => True | _ => False) →\n      isSuccessful (spendingOnly (toLedgerData ctx))"
+        },
+        "text": "The spending branch terminates successfully for every typed spending context."
+      }
+    },
+    {
+      "checkingContext": "minting_accepted",
+      "id": "minting_accepted",
+      "scope": {
+        "validators": [
+          "spendingAndMinting"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∀ (ctx : ScriptContext),\n      (match ctx.scriptContextScriptInfo with | .MintingScript _ => True | _ => False) →\n      isSuccessful (spendingAndMinting (toLedgerData ctx))"
+        },
+        "text": "The multi-purpose script also terminates successfully for every typed minting context."
+      }
+    }
+  ]
+}

@@ -44,6 +44,8 @@ cd cardano-blaster
 bin/cardano-blaster check examples/game/plutus.json examples/game/assurance.json --refresh-environment
 bin/cardano-blaster check examples/auction/plutus.json examples/auction/assurance.json --refresh-environment
 bin/cardano-blaster check examples/helper-counterexample/plutus.json examples/helper-counterexample/assurance.json --refresh-environment
+bin/cardano-blaster check examples/purpose-isolation/plutus.json examples/purpose-isolation/assurance.json --refresh-environment
+bin/cardano-blaster check examples/purpose-isolation-counterexample/plutus.json examples/purpose-isolation-counterexample/assurance.json --refresh-environment
 ```
 
 Game and Auction verify 3 and 31 properties. The helper counterexample deliberately
@@ -53,6 +55,16 @@ It exits with code 1 and reports a typed witness and compiled replay status.
 `examples/parameters` covers native/Data encoding and applied parameters;
 `examples/recursive` covers a recursive Tree schema. See
 [example provenance](examples/README.md).
+
+`examples/purpose-isolation` contains five verified claims, including generated
+properties that require a V3 script to reject every purpose outside those named
+in its UAL source template. It includes a native integer parameter and a script
+that intentionally accepts both spending and minting even though its blueprint
+lists a spending invocation. `examples/purpose-isolation-counterexample` has a
+compiled script that omits the purpose guard. Its generated claim is falsified;
+the CLI replays the wrong-purpose witness against UPLC and exports its typed
+`ScriptContext` to Haskell. The template parameter alone declares the allowed
+purposes; blueprint purpose metadata does not constrain the claim.
 
 `--refresh-environment` creates derived checking contexts for this installation
 and performs fresh verification. It preserves the original inputs, claims,
@@ -191,9 +203,9 @@ their exact pinned revisions. No adjacent repository clones are required.
 
 All CLI and test code is Lean 4. The integration tests run the relocated native
 bundle from another directory with failing stubs for Python, Lean, Lake, Git,
-GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 44 true properties, confirm both typed
+GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 49 true properties, confirm three typed
 counterexamples against compiled UPLC, recheck a bound context without refreshing,
-export both Haskell counterexamples with bound file hashes, and exercise invalid
+export three Haskell counterexamples with bound file hashes, and exercise invalid
 input, unsupported claims, mismatched/incomplete source values and timeout behavior.
 
 When updating dependencies, change the Lake requirements, manifest and runtime
