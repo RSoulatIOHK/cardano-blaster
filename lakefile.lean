@@ -3,8 +3,6 @@ open Lake DSL
 
 package «CardanoBlaster» where
   moreLeanArgs := #["--threads=4"]
-  moreLeancArgs := if System.Platform.isOSX then #["-mmacosx-version-min=14.0"] else #[]
-  moreLinkArgs := if System.Platform.isOSX then #["-mmacosx-version-min=14.0"] else #[]
 
 require Blaster from git "https://github.com/input-output-hk/Lean-blaster" @ "1cb5a63e0416f336caa3104c2654718e6f971bc9"
 require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "eed6584454a5c76de20f5b316fea203553d38452"

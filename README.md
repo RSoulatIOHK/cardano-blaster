@@ -161,10 +161,26 @@ the executable. It is not needed when using a precompiled archive.
 ```sh
 git clone https://github.com/RSoulatIOHK/cardano-blaster.git
 cd cardano-blaster
-lake build cardano-blaster native-tests
-lake exe cardano-blaster setup
+lake build cardano-blaster
+.lake/build/bin/cardano-blaster setup
+.lake/build/bin/cardano-blaster check examples/game/plutus.json examples/game/assurance.json --refresh-environment
+```
+
+Run the built executable directly for checks. `lake exe` also replays dependency
+build diagnostics, including warnings from earlier builds.
+
+Source builds use Lean's default macOS deployment target for both the executable
+and its dependencies. Release CI sets `MACOSX_DEPLOYMENT_TARGET=14.0` for the
+entire build, including dependencies, and checks the resulting executable's target.
+Setting a minimum version only on the root package would mix incompatible build
+targets and generate linker warnings.
+
+To run the developer checks and create a native distribution:
+
+```sh
+lake build native-tests
 lake exe native-tests unit
-lake exe cardano-blaster bundle dist/cardano-blaster
+.lake/build/bin/cardano-blaster bundle dist/cardano-blaster
 lake exe native-tests integration "$PWD/dist/cardano-blaster/bin/cardano-blaster" "$PWD/examples" "$PWD/cardano-blaster-results/integration"
 ```
 
