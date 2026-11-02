@@ -1,4 +1,4 @@
-import CardanoBlaster.SourceValue
+import CardanoBlaster.Json
 
 namespace CardanoBlaster.Counterexample
 open Lean System
@@ -115,7 +115,7 @@ private partial def expression (j : Json) : Except String Expression := do
   | "encoded" =>
     unless (← str j "encoding") == "plutus-data" do throw "unsupported source encoding"
     let ty ← sourceType (← str j "type")
-    return ⟨(← SourceValue.render plutusData bytes (← str j "type") (← get j "value")), .atom ty⟩
+    return ⟨"(decodeData (" ++ (← plutusData (← get j "value")) ++ "))", .atom ty⟩
   | "constructor" =>
     let ty ← str j "type"
     let ctor ← str j "constructor"
@@ -180,17 +180,34 @@ def prepare (result : Json) : Except String (String × Json) := do
   let mut needsLedger := false
   let mut needsBytes := false
   let mut used : Array String := #[]
+  let mut encodedBindings : Array (Json × String × String) := #[]
   for i in [:bindings.size] do
     let binding := bindings[i]!
     let typed ← completeValue binding
-    let value ← haskell typed
     needsLedger := needsLedger || usesLedger typed
     needsBytes := needsBytes || usesBytes typed
     let name := identifier (← str binding "name") s!"input{i}" used
     used := used.push name
-    declarations := declarations.push s!"{name} = {value}\n"
+    let mut sourceTy := Json.null
+    let mut dataName := Json.null
+    let mut value := ""
+    if optText typed "kind" == some "encoded" then
+      let ty ← sourceType (← str typed "type")
+      let wire ← get typed "value"
+      let rawName := identifier (name ++ "Data") s!"input{i}Data" used
+      used := used.push rawName
+      let raw ← plutusData wire
+      value := s!"decodeData {rawName}"
+      declarations := declarations.push s!"{rawName} :: V3.Data\n{rawName} = {raw}\n\n{name} :: {ty}\n{name} = {value}\n"
+      encodedBindings := encodedBindings.push (typed, name, rawName)
+      sourceTy := toJson ty
+      dataName := toJson rawName
+    else
+      value ← haskell typed
+      declarations := declarations.push s!"{name} = {value}\n"
     inputs := inputs.push (obj [("name", toJson (← str binding "name")), ("identifier", toJson name),
-      ("leanType", toJson (← str binding "leanType")), ("expression", toJson value)])
+      ("leanType", toJson (← str binding "leanType")), ("sourceType", sourceTy),
+      ("dataIdentifier", dataName), ("expression", toJson value)])
   let mut contexts : Array Json := #[]
   let mut seen : Array (Nat × Json) := #[]
   let calls ← arr replay "calls"
@@ -214,26 +231,43 @@ def prepare (result : Json) : Except String (String × Json) := do
       needsLedger := true
       needsBytes := needsBytes || usesBytes value
       let name := identifier (← str binding "name") s!"context{contexts.size}" used
-      used := used.push name
-      let expression ← haskell value
-      let indented := String.intercalate "\n" (expression.splitOn "\n" |>.map ("  " ++ ·))
-      declarations := declarations.push s!"{name} :: {ty}\n{name} =\n{indented}\n"
+      let dataName := identifier (name ++ "Data") s!"context{contexts.size}Data" (used.push name)
+      used := used.push name |>.push dataName
+      let mut dataExpression ← plutusData wire
+      let mut expression := s!"decodeData {dataName}"
+      for (saved, sourceName, sourceDataName) in encodedBindings do
+        if saved == value then
+          dataExpression := sourceDataName
+          expression := sourceName
+          break
+      declarations := declarations.push s!"{dataName} :: V3.Data\n{dataName} = {dataExpression}\n\n{name} :: {ty}\n{name} = {expression}\n"
       contexts := contexts.push (obj [("identifier", toJson name), ("sourceType", toJson (← str value "type")),
+        ("haskellType", toJson ty),
         ("name", toJson (← str binding "name")), ("expression", toJson expression),
+        ("dataIdentifier", toJson dataName), ("dataExpression", toJson dataExpression),
+        ("wireData", wire),
         ("callIndex", toJson callIndex), ("target", toJson (← str call "target")),
         ("argumentIndices", toJson argumentIndices), ("wireArgumentEncoding", toJson "tocex-json-v1"),
         ("wireArgumentSha256", toJson (hashBytes wire.compress.toUTF8))])
   let body := String.intercalate "\n" declarations.toList
   let imports := "import Prelude\nimport qualified Prelude as P\n" ++
     (if needsBytes then "import qualified Data.ByteString as BS\n" else "") ++
-    (if needsLedger then "import qualified PlutusLedgerApi.V3 as V3\n" ++ SourceValue.imports else "")
+    (if needsLedger then "import qualified PlutusLedgerApi.V3 as V3\n" else "")
+  let decoder := if needsLedger then
+    "-- Decode the exact argument replayed against UPLC using Plinth's own FromData instance.\n" ++
+    "decodeData :: (V3.FromData a, V3.ToData a) => V3.Data -> a\n" ++
+    "decodeData wire = case V3.fromData wire of\n" ++
+    "  Just value | V3.toData value == wire -> value\n" ++
+    "  Just _ -> P.error \"Haskell value does not round-trip to the replayed Data\"\n" ++
+    "  Nothing -> P.error \"Haskell FromData rejected the replayed Data\"\n\n"
+    else ""
   let inputStrings := inputs.toList.map fun input =>
     "(" ++ quote ((str input "name").toOption.get!) ++ ", " ++ quote ((str input "expression").toOption.get!) ++ ")"
   let display := contexts.toList.map fun ctx => "    P.print " ++ (str ctx "identifier").toOption.get! ++ "\n"
   let main := if contexts.isEmpty then "main = P.mapM_ P.print inputs\n" else
     "main = do\n" ++ String.join display ++ "    P.mapM_ P.print inputs\n"
-  let source := "{-# LANGUAGE DisambiguateRecordFields #-}\n-- Source values for a confirmed UPLC counterexample.\n-- Exact wire arguments and replay evidence are in verifier-report.json.\nmodule Main where\n" ++ imports ++
-    "\nproperty :: String\nproperty = " ++ quote (← str result "property") ++ "\n\n" ++ body ++
+  let source := "-- Source values for a confirmed UPLC counterexample.\n-- Exact wire arguments and replay evidence are in verifier-report.json.\nmodule Main where\n" ++ imports ++
+    "\n" ++ decoder ++ "property :: String\nproperty = " ++ quote (← str result "property") ++ "\n\n" ++ body ++
     "\ninputs :: [(String, String)]\ninputs = [" ++ String.intercalate ", " inputStrings ++ "]\n\nmain :: IO ()\n" ++ main
   return (source, obj [("status", toJson "exported"), ("language", toJson "haskell"),
     ("compilation", toJson "not-run"), ("inputs", .arr inputs), ("contexts", .arr contexts)])

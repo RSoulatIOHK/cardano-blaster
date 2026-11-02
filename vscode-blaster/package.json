@@ -1,0 +1,144 @@
+{
+  "name": "blaster-assurance",
+  "displayName": "Blaster Assurance",
+  "description": "Check Cardano blueprints and inspect typed Haskell counterexamples alongside UAL properties.",
+  "version": "0.2.0",
+  "publisher": "iohk",
+  "license": "Apache-2.0",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onLanguage:haskell",
+    "onLanguage:json",
+    "onCommand:blaster.runWorkspaceVerification",
+    "onCommand:blaster.loadResults",
+    "onCommand:blaster.runNativeCheck",
+    "onCommand:blaster.openHaskellCounterexample",
+    "onCommand:blaster.decodeHaskellCounterexample"
+  ],
+  "main": "./src/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "blaster.runWorkspaceVerification",
+        "title": "Blaster: Run Assurance Demo"
+      },
+      {
+        "command": "blaster.loadResults",
+        "title": "Blaster: Load Assurance Results"
+      },
+      {
+        "command": "blaster.refreshResults",
+        "title": "Blaster: Refresh Assurance Results"
+      },
+      {
+        "command": "blaster.runProperty",
+        "title": "Blaster: Rerun This Property"
+      },
+      {
+        "command": "blaster.openResult",
+        "title": "Blaster: Open Evidence"
+      },
+      {
+        "command": "blaster.runNativeCheck",
+        "title": "Blaster: Check Blueprint and Assurance"
+      },
+      {
+        "command": "blaster.openHaskellCounterexample",
+        "title": "Blaster: Open Haskell Counterexample"
+      },
+      {
+        "command": "blaster.decodeHaskellCounterexample",
+        "title": "Blaster: Decode Haskell Counterexample"
+      }
+    ],
+    "configuration": {
+      "title": "Blaster",
+      "properties": {
+        "blaster.corePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the PlutusCoreBlaster checkout."
+        },
+        "blaster.plutusPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the Plutus checkout containing the UAL examples."
+        },
+        "blaster.cipsPath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the CIPs checkout."
+        },
+        "blaster.ualPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional path to the UniversalAnnotationLanguage checkout."
+        },
+        "blaster.z3Path": {
+          "type": "string",
+          "default": "",
+          "description": "Path to the compatible Z3 executable."
+        },
+        "blaster.outputPath": {
+          "type": "string",
+          "default": "",
+          "description": "Directory in which verification results are written and discovered. Defaults to cardano-blaster-results in the first workspace folder."
+        },
+        "blaster.executablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Native cardano-blaster executable. Defaults to this repository's built executable, then PATH."
+        },
+        "blaster.refreshEnvironment": {
+          "type": "boolean",
+          "default": false,
+          "description": "Pass --refresh-environment when running a native check, for examples generated in another installation."
+        },
+        "blaster.cabalPath": {
+          "type": "string",
+          "default": "cabal",
+          "description": "Cabal executable used to run Plutus FromData in the configured Plutus checkout."
+        },
+        "blaster.haskellEnvironment": {
+          "type": "object",
+          "default": {},
+          "description": "Extra environment variables for the Haskell counterexample decoder task."
+        },
+        "blaster.ghcPath": {
+          "type": "string",
+          "default": "ghc",
+          "description": "GHC 9.6.7 executable or wrapper used by the coordinated verifier."
+        },
+        "blaster.pythonPath": {
+          "type": "string",
+          "default": "python3",
+          "description": "Python executable with the CIP schema requirements installed."
+        },
+        "blaster.nixShell": {
+          "type": "boolean",
+          "default": false,
+          "description": "Run the verifier inside the Plutus ghc96 Nix development shell."
+        },
+        "blaster.skipBuild": {
+          "type": "boolean",
+          "default": false,
+          "description": "Reuse already-built generators only when the Haskell source has not changed."
+        },
+        "blaster.auctionBaselinePath": {
+          "type": "string",
+          "default": "",
+          "description": "Previously verified Auction bundle for fast replay of edits confined to one PROPERTY block."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node --test"
+  }
+}

@@ -1,5 +1,7 @@
-These are developer tools for updating Haskell source rendering. The native CLI
-does not execute them, and its users need neither GHC nor these source files.
+These are developer tools for checking the legacy direct-constructor renderer.
+The native CLI exports wire `Data` and delegates typed reconstruction to
+Haskell `fromData`; it does not execute these tools, and its users need neither
+GHC nor these source files.
 
 `SourceTypes.hs` reflects constructor and field names with Template Haskell. It
 asks the real `ToData` instances for structural layouts and tags, including

@@ -98,7 +98,8 @@ reconstruct a Lean proof or establish ledger acceptance or CPU/memory budgets.
 
 A falsified property with a confirmed compiled replay automatically exports a
 Haskell module under the run's `counterexamples/` directory. The terminal shows
-the source file and the original input names with their Haskell expressions:
+the source file and the original input names. For encoded ledger values it shows
+their Haskell types; the complete Data remains in the generated module and report:
 
 ```text
 falsified  first_bid_exact
@@ -110,26 +111,30 @@ falsified  first_bid_exact
   hi = (0 :: Integer)
 ```
 
-The module preserves valid input names (`proposed`, `locked`, etc.) and renders
-typed arguments as actual Haskell records, sums and newtypes. For example,
-`ctx :: V3.ScriptContext` contains `scriptContextTxInfo = V3.TxInfo { ... }`,
-with named fields such as `txInfoInputs` and `txInfoOutputs`. It does not wrap
-a serialized context in `decodeData`, or duplicate it as a raw Data literal.
+The module preserves valid input names (`proposed`, `locked`, etc.). For an
+encoded `ScriptContext`, it defines a `V3.Data` binding with the exact argument
+used in the confirmed UPLC replay, then a `V3.ScriptContext` binding using the
+ledger API's `fromData` instance. The generated decoder checks that `toData` of
+the decoded context equals the original wire value. A failed decode or changed
+round trip raises an explicit Haskell error; the raw Data remains available.
 Invalid or colliding Haskell identifiers receive a safe replacement or suffix;
 the original name remains in the JSON report.
 
-The ledger type graph is reflected from the actual Haskell definitions in
-`plutus-ledger-api-1.72.0.0`. Constructor tags come from its `ToData` instances,
-not declaration order or blueprint display titles. The graph is embedded in the
-Lean CLI; checking and source generation need no GHC or Python. Fields whose
-actual Haskell type is `BuiltinData` remain Data: without an explicit source type
-mapping, the tool cannot claim that a datum or redeemer is a particular contract
-type. Arbitrary user-defined Haskell type reconstruction is not yet supported.
+The CLI generates this source in Lean without GHC or Python. It currently knows
+the Haskell types of V3 `ScriptContext`, `TxInfo` and `ScriptInfo` arguments.
+Fields whose actual Haskell type is `BuiltinData` remain Data: without an explicit
+source type mapping, the tool cannot claim that a datum or redeemer is a
+particular contract type. Arbitrary user-defined Haskell type reconstruction is
+not yet supported.
 
 Each exported context must match a replayed wire argument exactly. The complete
 wire value and confirmed UPLC replay remain in `verifier-report.json`; the
-generated `main` prints the typed values. Haskell compilation and codec round
-trips are separate developer validation, not an extra proof performed by `check`.
+generated `main` decodes and prints the typed values. The Haskell decode and
+round trip happen when that module runs, not during `check`.
+
+The [VS Code extension](vscode-blaster/README.md) can run the native check,
+open a confirmed Haskell counterexample from `report.json`, and run its `main`
+in the configured Plutus Cabal environment to display the decoded value.
 
 To compile and run an exported module, use a GHC environment containing the
 Plutus project's `plutus-ledger-api` and `bytestring` packages:
@@ -147,7 +152,7 @@ is preserved and its digest is also recorded.
 
 `compilation: not-run` distinguishes source export from compiling or running the
 Haskell module. The CLI confirms execution through UPLC replay. Unknown source
-types, incomplete values, unfinished replay and mismatched contexts produce
+types, incomplete values, unfinished replay and mismatched wire arguments produce
 `source.status: unavailable` with a reason; the SMT verdict remains unchanged.
 Supported source values include integers, naturals, booleans, strings, bytes,
 unit, lists, pairs, options, Plutus Data and the three explicit V3 codecs above.

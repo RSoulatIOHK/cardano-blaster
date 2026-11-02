@@ -1,4 +1,5 @@
 import CardanoBlaster.Counterexample
+import CardanoBlaster.SourceValue
 
 namespace Tests.Counterexample
 open Lean System CardanoBlaster
@@ -65,10 +66,18 @@ def run : IO Unit := do
   ensure ((source.splitOn "property = \"../unsafe\\nmodule Evil where\"").length > 1) "property text became source code"
   ensure ((source.splitOn "input0 = (-7 :: Integer)").length > 1) "input identifier derived from producer name"
   ensure ((source.splitOn "ctx :: V3.ScriptInfo").length > 1) "source argument name was lost"
-  ensure ((source.splitOn "V3.MintingScript").length > 1) "source constructor was not reconstructed"
-  ensure ((source.splitOn "decodeData").length == 1) "source export is still a Data wrapper"
+  ensure ((source.splitOn "ctxData :: V3.Data").length > 1) "wire Data was not exported"
+  ensure ((source.splitOn "ctx = decodeData ctxData").length > 1) "Haskell FromData is not used"
+  ensure ((source.splitOn "V3.toData value == wire").length > 1) "decoded context is not checked against the replayed wire"
+  let matched := put fixture "counterexample" (put (fixture.getObjValD "counterexample") "model"
+    (obj [("bindings", toJson #[binding "ctx" context])]))
+  let (matchedSource, _) ← IO.ofExcept (prepare matched)
+  ensure ((matchedSource.splitOn "ctx_1Data = ctxData").length > 1 &&
+    (matchedSource.splitOn "ctx_1 = ctx").length > 1) "model and replay duplicated the Data argument"
+  ensure ((matchedSource.splitOn (← IO.ofExcept (plutusData sourceWire))).length == 2)
+    "wire Data was emitted more than once"
   let wrongSource := put context "value" wire
-  ensure (!(haskell wrongSource).isOk) "ill-typed source value accepted"
+  ensure ((haskell wrongSource).isOk) "well-formed wire Data should remain exportable"
   let ratioWire (n d : Int) := json <| .constructor "PlutusCore.Data" "Constr" [
     ("index", .integer 0), ("fields", .list [
       .constructor "PlutusCore.Data" "I" [("value", .integer n)],

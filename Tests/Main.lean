@@ -1,4 +1,5 @@
 import CardanoBlaster.Cli
+import CardanoBlaster.SourceValue
 import CardanoBlasterTests
 
 open Lean System CardanoBlaster
@@ -121,18 +122,21 @@ private def integration (cli examples output : FilePath) : IO Unit := do
       ensure (optText source "compilation" == some "not-run") "export claims unperformed compilation"
       let file ← field source "file"
       let hs ← IO.FS.readFile ((← string (← field report "artifacts")) / (← text file "uri") : System.FilePath)
-      ensure ((hs.splitOn "decodeData").length == 1) "source witness is a Data wrapper"
+      let contexts ← array (← field source "contexts")
+      if contexts.isEmpty then
+        ensure ((hs.splitOn "decodeData").length == 1) "scalar witness unexpectedly uses Haskell FromData"
+      else
+        ensure ((hs.splitOn "decodeData").length > 1) "encoded witness does not use Haskell FromData"
       let folder : FilePath := ← text report "artifacts"
       ensure ((← hashFile (folder / (← text file "uri"))) == (← text (← field file "hash") "digest")) "Haskell file digest differs"
       if name == "auction-counterexample" then
         ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
-        for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "txInfoOutputs ="] do
+        for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "ctxData :: V3.Data"] do
           ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
       if name == "purpose-isolation-counterexample" then
         ensure (!(← array (← field source "contexts")).isEmpty) "typed purpose-isolation context missing"
-        for token in [":: V3.ScriptContext", "scriptContextScriptInfo ="] do
+        for token in [":: V3.ScriptContext", ":: V3.Data", "decodeData"] do
           ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
-        ensure ((hs.splitOn "V3.SpendingScript").length == 1) "witness uses an allowed spending purpose"
     reports := reports.push report
   let derived : FilePath := ← text reports[0]! "artifacts"
   reports := reports.push (← invoke cli (derived / "plutus.json") (derived / "assurance.json") output false 0)

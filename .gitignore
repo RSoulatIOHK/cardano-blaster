@@ -3,3 +3,5 @@ dist/
 relocated/
 cardano-blaster-results/
 .DS_Store
+vscode-blaster/node_modules/
+vscode-blaster/scripts/__pycache__/
