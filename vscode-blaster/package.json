@@ -19,7 +19,8 @@
     "onCommand:blaster.loadResults",
     "onCommand:blaster.runNativeCheck",
     "onCommand:blaster.openHaskellCounterexample",
-    "onCommand:blaster.decodeHaskellCounterexample"
+    "onCommand:blaster.decodeHaskellCounterexample",
+    "onCommand:blaster.prettyCounterexample"
   ],
   "main": "./src/extension.js",
   "contributes": {
@@ -55,6 +56,10 @@
       {
         "command": "blaster.decodeHaskellCounterexample",
         "title": "Blaster: Decode Haskell Counterexample"
+      },
+      {
+        "command": "blaster.prettyCounterexample",
+        "title": "Blaster: Pretty-print Counterexample at Property"
       }
     ],
     "configuration": {

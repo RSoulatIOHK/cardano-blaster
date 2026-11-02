@@ -2,14 +2,18 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
+const crypto = require('node:crypto');
 const vscode = require('vscode');
 const {
   collectResultFiles,
   mergeResults,
   propertyBlocks,
   propertyForSource,
+  sha256File,
   sourceState
 } = require('./results');
+const { findProject, runFocused, runProcess } = require('./project');
+const { prettyHaskell } = require('./pretty');
 const {
   collectNativeReportFiles,
   counterexamples,
@@ -25,6 +29,7 @@ let diagnostics;
 let decoration;
 let status;
 let lenses;
+let outputChannel;
 
 function configuredPath(name) {
   const value = vscode.workspace.getConfiguration('blaster').get(name, '');
@@ -34,12 +39,20 @@ function configuredPath(name) {
   return path.resolve(value.replace(/^\$\{workspaceFolder\}/, root));
 }
 
-function plutusCheckout() {
+function plutusCheckout(source) {
   const configured = configuredPath('plutusPath');
   if (configured) return configured;
-  return (vscode.workspace.workspaceFolders || [])
-    .map((folder) => folder.uri.fsPath)
-    .find((folder) => fs.existsSync(path.join(folder, 'cabal.project'))) || '';
+  const candidates = [source, ...(vscode.workspace.workspaceFolders || []).map((folder) => folder.uri.fsPath)].filter(Boolean);
+  for (const candidate of candidates) {
+    let directory = fs.statSync(candidate).isDirectory() ? candidate : path.dirname(candidate);
+    while (true) {
+      if (fs.existsSync(path.join(directory, 'cabal.project'))) return directory;
+      const parent = path.dirname(directory);
+      if (parent === directory) break;
+      directory = parent;
+    }
+  }
+  return '';
 }
 
 function resultFiles() {
@@ -49,6 +62,11 @@ function resultFiles() {
 function resultsRoot() {
   const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
   return configuredPath('outputPath') || path.join(folder || path.resolve(__dirname, '../..'), 'cardano-blaster-results');
+}
+
+function nativeExecutable() {
+  const local = path.resolve(__dirname, '../../.lake/build/bin/cardano-blaster');
+  return configuredPath('executablePath') || (fs.existsSync(local) ? local : 'cardano-blaster');
 }
 
 function loadFiles(files, nativeFiles = [], announce = true) {
@@ -109,7 +127,16 @@ function counterexampleText(property) {
 
 function freshnessOf(document, property) {
   try {
-    return sourceState(document.uri.fsPath, state.sourceHashes, document.getText(), property);
+    const freshness = sourceState(document.uri.fsPath, state.sourceHashes, document.getText(), property);
+    if (freshness.stale || !property?.sourceHashes) return freshness;
+    for (const open of vscode.workspace.textDocuments) {
+      const expected = property.sourceHashes[open.uri.fsPath];
+      if (!expected || open.uri.fsPath === document.uri.fsPath) continue;
+      const actual = crypto.createHash('sha256').update(open.getText()).digest('hex');
+      if (actual !== expected) return { tracked: true, stale: true,
+        reason: `Haskell source changed since Blaster checked it: ${open.uri.fsPath}` };
+    }
+    return freshness;
   } catch (_) {
     return { tracked: false, stale: false };
   }
@@ -147,12 +174,15 @@ function updateEditor(editor) {
         renderOptions: { after: { contentText: '  ✓ Blaster verified', color: new vscode.ThemeColor('testing.iconPassed') } }
       });
     } else {
+      const model = counterexampleText(property);
+      const summary = property.outcome === 'falsified' && property.nativeReport && model
+        ? `  ✗ CEX: ${model.slice(0, 75)}${model.length > 75 ? '…' : ''}`
+        : `  ✗ ${property.outcome}`;
       shown.push({
         range: idRangeOf(block),
         hoverMessage: property.notes || detail(property),
-        renderOptions: { after: { contentText: `  ✗ ${property.outcome}`, color: new vscode.ThemeColor('testing.iconFailed') } }
+        renderOptions: { after: { contentText: summary, color: new vscode.ThemeColor('testing.iconFailed') } }
       });
-      const model = counterexampleText(property);
       const diagnostic = new vscode.Diagnostic(rangeOf(block),
         model ? `${detail(property)}. Counterexample: ${model}` : detail(property),
         property.outcome === 'inconclusive' ? vscode.DiagnosticSeverity.Warning : vscode.DiagnosticSeverity.Error);
@@ -180,12 +210,19 @@ class LensProvider {
   }
 
   provideCodeLenses(document) {
+    let projectAvailable = false;
+    try { projectAvailable = Boolean(findProject(document.uri.fsPath)); } catch (_) { /* command reports invalid manifests */ }
     return propertyBlocks(document.getText()).flatMap((block) => {
       const property = propertyForSource(state, document.uri.fsPath, block.id);
       const freshness = freshnessOf(document, property);
       let title = '$(circle-outline) No Blaster evidence';
       let command = 'blaster.loadResults';
       let args = [];
+      if (!property && projectAvailable) {
+        title = '$(play) Check this property with Blaster';
+        command = 'blaster.runProperty';
+        args = [document.uri, block.id];
+      }
       if (property) {
         title = freshness.stale
           ? '$(warning) Blaster evidence is stale — rerun'
@@ -195,14 +232,22 @@ class LensProvider {
         command = freshness.stale ? 'blaster.runProperty' : 'blaster.openResult';
         args = freshness.stale ? [document.uri, block.id] : [property.logFile || property.resultFile];
       }
-      return [
+      const items = [
         new vscode.CodeLens(idRangeOf(block), { title, command, arguments: args }),
-        new vscode.CodeLens(idRangeOf(block), {
-          title: '$(debug-rerun) Rerun this property',
+      ];
+      if (property) items.push(new vscode.CodeLens(idRangeOf(block), {
+          title: '$(debug-rerun) Check this property',
           command: 'blaster.runProperty',
           arguments: [document.uri, block.id]
-        })
-      ];
+        }));
+      if (property?.nativeReport && property.outcome === 'falsified' && property.haskellFile && !freshness.stale) {
+        items.push(new vscode.CodeLens(idRangeOf(block), {
+          title: '$(file-code) Pretty-print Haskell CEX',
+          command: 'blaster.prettyCounterexample',
+          arguments: [document.uri, block.id]
+        }));
+      }
+      return items;
     });
   }
 }
@@ -363,8 +408,7 @@ async function chooseCheckInputs() {
 async function runNativeCheck() {
   const inputs = await chooseCheckInputs();
   if (!inputs) return;
-  const local = path.resolve(__dirname, '../../.lake/build/bin/cardano-blaster');
-  const executable = configuredPath('executablePath') || (fs.existsSync(local) ? local : 'cardano-blaster');
+  const executable = nativeExecutable();
   const output = resultsRoot();
   const args = ['check', inputs.blueprint, inputs.assurance];
   args.push('--output', output);
@@ -389,6 +433,109 @@ async function runNativeCheck() {
       vscode.window.showErrorMessage(`Cardano Blaster exited with code ${event.exitCode}. See the task terminal.`);
     }
   });
+}
+
+async function runNativeProperty(project, document, id) {
+  outputChannel.clear();
+  outputChannel.show(true);
+  try {
+    for (const open of vscode.workspace.textDocuments) {
+      if (project.sources.includes(open.uri.fsPath) && open.isDirty && !(await open.save())) {
+        throw new Error(`Could not save ${open.uri.fsPath} before compiling`);
+      }
+    }
+    const checked = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Blaster: checking ${id}`
+    }, () => runFocused(project, document.uri.fsPath, id, nativeExecutable(), resultsRoot(),
+      (part) => outputChannel.append(part)));
+    refreshResults(false);
+    const result = checked.result;
+    if (result.outcome === 'falsified' && result.sourceFile) {
+      const action = await vscode.window.showInformationMessage(
+        `${id}: falsified; compiled replay ${result.replay}.`, 'Pretty-print Haskell CEX');
+      if (action) await prettyCounterexample(document.uri, id);
+    } else {
+      vscode.window.showInformationMessage(`${id}: ${result.outcome}${result.replay ? `; replay ${result.replay}` : ''}.`);
+    }
+  } catch (error) {
+    outputChannel.appendLine(`\n${error.stack || error.message}`);
+    vscode.window.showErrorMessage(`Blaster could not check ${id}: ${error.message}. See Blaster output.`);
+  }
+}
+
+async function showPrettyCounterexample(choice) {
+  const file = counterexampleFile(choice);
+  if (!file) return;
+  const plutus = plutusCheckout(choice.originSource);
+  if (!plutus || !fs.existsSync(path.join(plutus, 'cabal.project'))) {
+    vscode.window.showErrorMessage('Set blaster.plutusPath to a Plutus checkout with cabal.project to decode the Haskell CEX.');
+    return;
+  }
+  const config = vscode.workspace.getConfiguration('blaster');
+  const environment = config.get('haskellEnvironment', {});
+  outputChannel.show(true);
+  let decoded;
+  try {
+    decoded = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Blaster: decoding ${choice.property} with Plutus FromData`
+    }, () => runProcess({
+      command: config.get('cabalPath', 'cabal'),
+      args: ['exec', '--disable-tests', '--disable-benchmarks', '--',
+        'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', file, '-e', 'main'],
+      cwd: plutus,
+      env: { ...process.env, ...environment }
+    }, (part) => outputChannel.append(part)));
+  } catch (error) {
+    vscode.window.showErrorMessage(`Could not start the Haskell decoder: ${error.message}`);
+    return;
+  }
+  if (decoded.code !== 0) {
+    vscode.window.showErrorMessage(`Haskell FromData failed (exit ${decoded.code}). See Blaster output.`);
+    return;
+  }
+  const pretty = decoded.stdout.trim().split(/\r?\n/).map((line) => prettyHaskell(line)).join('\n\n');
+  const content = [
+    `-- Blaster counterexample: ${choice.property}`,
+    `-- Compiled UPLC replay: ${choice.replay}`,
+    `-- Decoded with Plutus FromData from ${path.basename(file)}`,
+    '',
+    pretty
+  ].join('\n');
+  const document = await vscode.workspace.openTextDocument({ language: 'haskell', content });
+  await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
+}
+
+async function prettyCounterexample(uri, propertyId) {
+  try {
+    if (!uri) uri = vscode.window.activeTextEditor?.document.uri;
+    if (!uri) throw new Error('Open the Haskell property first');
+    const document = await vscode.workspace.openTextDocument(uri);
+    if (!propertyId) {
+      const cursor = vscode.window.activeTextEditor?.selection.active;
+      propertyId = propertyBlocks(document.getText()).find((block) => cursor && rangeOf(block).contains(cursor))?.id;
+    }
+    if (!propertyId) throw new Error('Put the cursor on a UAL PROPERTY annotation');
+    const property = propertyForSource(state, uri.fsPath, propertyId);
+    if (!property?.nativeReport || !property.haskellFile || freshnessOf(document, property).stale) {
+      vscode.window.showWarningMessage(`No fresh, confirmed Haskell counterexample is attached to ${propertyId}.`);
+      return;
+    }
+    if (sha256File(property.nativeReport) !== property.nativeReportSha256) {
+      vscode.window.showErrorMessage('Native Blaster report changed since this property result was recorded. Rerun the property.');
+      return;
+    }
+    const report = readNativeReport(property.nativeReport);
+    const result = report.results.find((item) => item.property === propertyId && item.sourceFile);
+    if (!result || result.sourceFile !== property.haskellFile) {
+      vscode.window.showErrorMessage('The Haskell counterexample no longer matches the property result. Rerun the property.');
+      return;
+    }
+    await showPrettyCounterexample({ ...result, report, originSource: document.uri.fsPath });
+  } catch (error) {
+    vscode.window.showErrorMessage(`Could not open the Haskell counterexample: ${error.message}`);
+  }
 }
 
 function requiredRunConfiguration() {
@@ -466,9 +613,20 @@ async function runProperty(uri, propertyId) {
     vscode.window.showErrorMessage('Save the Haskell specification before rerunning Blaster.');
     return;
   }
+  let project;
+  try {
+    project = findProject(document.uri.fsPath);
+  } catch (error) {
+    vscode.window.showErrorMessage(`Invalid Blaster project: ${error.message}`);
+    return;
+  }
+  if (project) {
+    await runNativeProperty(project, document, id);
+    return;
+  }
   const { values, missing } = requiredRunConfiguration();
   if (missing.length) {
-    vscode.window.showErrorMessage(`Configure Blaster paths first: ${missing.join(', ')}.`);
+    vscode.window.showErrorMessage(`Add cardano-blaster.project.json to this Haskell project to use the native checker, or configure the legacy Blaster paths: ${missing.join(', ')}.`);
     return;
   }
   const example = path.basename(path.dirname(document.uri.fsPath)).toLowerCase();
@@ -530,11 +688,13 @@ function activate(context) {
   status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
   status.command = 'blaster.refreshResults';
   lenses = new LensProvider();
+  outputChannel = vscode.window.createOutputChannel('Blaster');
 
   context.subscriptions.push(
     diagnostics,
     decoration,
     status,
+    outputChannel,
     lenses.emitter,
     vscode.commands.registerCommand('blaster.loadResults', chooseResults),
     vscode.commands.registerCommand('blaster.refreshResults', () => refreshResults()),
@@ -544,13 +704,13 @@ function activate(context) {
     vscode.commands.registerCommand('blaster.openResult', openResult),
     vscode.commands.registerCommand('blaster.openHaskellCounterexample', openHaskellCounterexample),
     vscode.commands.registerCommand('blaster.decodeHaskellCounterexample', decodeHaskellCounterexample),
+    vscode.commands.registerCommand('blaster.prettyCounterexample', prettyCounterexample),
     vscode.languages.registerCodeLensProvider({ language: 'haskell', scheme: 'file' }, lenses),
     vscode.languages.registerCodeLensProvider({ language: 'json', scheme: 'file' }, new NativeReportLensProvider()),
     vscode.languages.registerHoverProvider({ language: 'haskell', scheme: 'file' }, new HoverProvider()),
     vscode.window.onDidChangeVisibleTextEditors(refreshEditors),
     vscode.workspace.onDidChangeTextDocument((event) => {
-      const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === event.document);
-      if (editor) updateEditor(editor);
+      if (event.document.uri.scheme === 'file') refreshEditors();
     }),
     vscode.workspace.onDidSaveTextDocument((document) => {
       const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);

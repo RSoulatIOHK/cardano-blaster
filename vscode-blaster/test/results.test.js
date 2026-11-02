@@ -29,6 +29,13 @@ test('finds property IDs and source ranges in detached Haskell specs', () => {
   assert.equal(source.split('\n')[blocks[0].idStart.line].slice(blocks[0].idStart.character, blocks[0].idEnd.character), 'first_bid_exact');
 });
 
+test('locates the generated id of a purpose-isolation template at its scope', () => {
+  const source = '{-@ PROPERTY [scope: uncheckedPurpose] [template: purpose-isolation spending] @-}\n';
+  const [block] = propertyBlocks(source);
+  assert.equal(block.id, 'uncheckedPurpose_purpose_isolation');
+  assert.equal(source.slice(block.idStart.character, block.idEnd.character), 'uncheckedPurpose');
+});
+
 test('summarizes fresh verified evidence', () => {
   assert.deepEqual(evidenceStatus({ evidence: [{ outcome: 'verified', method: 'smt-check', date: '2026-10-07' }] }), {
     outcome: 'verified',

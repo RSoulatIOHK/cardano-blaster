@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 
-const PROPERTY = /\{-@\s*PROPERTY(?:\s+\[[^\]]*\])*\s+([A-Za-z_][A-Za-z0-9_'.-]*)[\s\S]*?@-\}/g;
+const PROPERTY = /\{-@\s*PROPERTY\b[\s\S]*?@-\}/g;
 
 function propertyBlocks(text) {
   const lines = [0];
@@ -21,13 +21,32 @@ function propertyBlocks(text) {
     }
     return { line: low, character: offset - lines[low] };
   };
-  return [...text.matchAll(PROPERTY)].map((match) => {
-    const idOffset = match.index + match[0].indexOf(match[1]);
+  return [...text.matchAll(PROPERTY)].flatMap((match) => {
+    const prefix = match[0].match(/^\{-@\s*PROPERTY\b/)[0];
+    const tail = match[0].slice(prefix.length);
+    let cursor = 0;
+    const parsed = [];
+    while (true) {
+      const option = tail.slice(cursor).match(/^\s*\[([^\]]*)\]/);
+      if (!option) break;
+      parsed.push(option[1]);
+      cursor += option[0].length;
+    }
+    const named = tail.slice(cursor).match(/^\s+([A-Za-z_][A-Za-z0-9_'.-]*)/);
+    const scope = parsed.find((option) => option.startsWith('scope:'))?.slice(6).trim();
+    const template = parsed.find((option) => option.startsWith('template:'))?.slice(9).trim();
+    const generated = !named && template?.startsWith('purpose-isolation ') && scope && !scope.includes(' ')
+      ? `${scope}_purpose_isolation` : undefined;
+    const id = named?.[1] || generated;
+    if (!id) return [];
+    const idOffset = named
+      ? match.index + prefix.length + cursor + named[0].lastIndexOf(id)
+      : match.index + prefix.length + tail.indexOf(scope);
     return {
-      id: match[1],
+      id,
       start: at(match.index),
       idStart: at(idOffset),
-      idEnd: at(idOffset + match[1].length),
+      idEnd: at(idOffset + (named ? id.length : scope.length)),
       end: at(match.index + match[0].length)
     };
   });
@@ -65,10 +84,14 @@ function readResult(file) {
       counterexample: document.counterexample || {},
       replay: document.structuredCounterexample && document.structuredCounterexample.replay,
       haskell: document.haskell,
+      nativeReport: document.nativeReport,
+      nativeReportSha256: document.nativeReportSha256,
+      haskellFile: document.haskellFile,
       resultFile: file,
       logFile: document.log,
       source: path.resolve(document.source),
-      sourceHash: document.sourceSha256.toLowerCase()
+      sourceHash: document.sourceSha256.toLowerCase(),
+      sourceHashes: document.sourceHashes || {}
     });
     return { properties, sourceHashes: new Map() };
   }
@@ -113,7 +136,8 @@ function collectResultFiles(root) {
   return found.sort((a, b) => {
     const aFocused = path.basename(a) === 'property-result.json';
     const bFocused = path.basename(b) === 'property-result.json';
-    return Number(aFocused) - Number(bFocused) || a.localeCompare(b);
+    return Number(aFocused) - Number(bFocused) ||
+      fs.statSync(a).mtimeMs - fs.statSync(b).mtimeMs || a.localeCompare(b);
   });
 }
 
@@ -178,7 +202,15 @@ function sourceState(file, sourceHashes, text, property) {
   if (!expected) return { tracked: false, stale: false };
   const actual = text === undefined ? sha256File(file)
     : crypto.createHash('sha256').update(text).digest('hex');
-  return { tracked: true, stale: actual !== expected, expected, actual };
+  if (actual !== expected) return { tracked: true, stale: true, expected, actual,
+    reason: 'The Haskell property changed since Blaster checked it.' };
+  for (const [dependency, hash] of Object.entries(property?.sourceHashes || {})) {
+    if (path.resolve(dependency) === resolved) continue;
+    if (!fs.existsSync(dependency) || sha256File(dependency) !== hash) {
+      return { tracked: true, stale: true, reason: `Haskell source changed since Blaster checked it: ${dependency}` };
+    }
+  }
+  return { tracked: true, stale: false, expected, actual };
 }
 
 module.exports = {

@@ -132,9 +132,10 @@ wire value and confirmed UPLC replay remain in `verifier-report.json`; the
 generated `main` decodes and prints the typed values. The Haskell decode and
 round trip happen when that module runs, not during `check`.
 
-The [VS Code extension](vscode-blaster/README.md) can run the native check,
-open a confirmed Haskell counterexample from `report.json`, and run its `main`
-in the configured Plutus Cabal environment to display the decoded value.
+The [VS Code extension](vscode-blaster/README.md) can run a property directly
+from a Haskell project, show its verdict at the UAL annotation, and decode a
+confirmed counterexample with Plutus `FromData` into a formatted Haskell view.
+It can also inspect a standalone `report.json`.
 
 To compile and run an exported module, use a GHC environment containing the
 Plutus project's `plutus-ledger-api` and `bytestring` packages:
