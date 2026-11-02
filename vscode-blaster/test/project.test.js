@@ -72,6 +72,11 @@ process.exit(1);
   fs.appendFileSync(source, '-- edited\n');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, true);
   assert.equal(propertyForSource(loaded, path.join(root, 'Unrelated.hs'), 'wrong_bid'), undefined);
+  fs.writeFileSync(checker, fs.readFileSync(checker, 'utf8')
+    .replace("format:'cardano-blaster-check-v1'", "error:'property not found: modules',format:'cardano-blaster-check-v1'")
+    .replace('process.exit(1);', 'process.exit(3);'));
+  await assert.rejects(runFocused(project, source, 'wrong_bid', checker, output),
+    /cardano-blaster: property not found: modules \(report:/);
 });
 
 test('Plutus generator builds before running and writes to an isolated bundle directory', async () => {

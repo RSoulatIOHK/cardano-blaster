@@ -116,9 +116,12 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   const checked = await runProcess({
     command: executable, args, cwd: project.directory, env: process.env
   }, onOutput);
-  if (![0, 1, 2].includes(checked.code)) throw new Error(`cardano-blaster exited with code ${checked.code}`);
   const reports = collectNativeReportFiles(output);
-  if (reports.length !== 1) throw new Error(`Expected one native report, found ${reports.length}`);
+  if (reports.length !== 1) throw new Error(`cardano-blaster exited with code ${checked.code}; expected one native report, found ${reports.length}`);
+  if (![0, 1, 2].includes(checked.code)) {
+    const failure = JSON.parse(fs.readFileSync(reports[0], 'utf8'));
+    throw new Error(`cardano-blaster: ${failure.error || `exit code ${checked.code}`} (report: ${reports[0]})`);
+  }
   const report = readNativeReport(reports[0]);
   for (const [file, hash] of Object.entries(sourceHashes)) {
     if (sha256File(file) !== hash) throw new Error(`Haskell source changed during verification: ${file}`);
