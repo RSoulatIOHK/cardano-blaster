@@ -1,11 +1,13 @@
 # Cardano Blaster for VS Code
 
 This extension checks UAL properties from a Haskell project and displays the
-result at the annotation. A falsified property gets an inline ✗ marker, a
-diagnostic with the witness, and a **Pretty-print Haskell CEX** CodeLens. The
-CodeLens runs the generated module through Plutus `FromData` and opens the
-decoded value beside the specification. The older report viewer remains
-available for inspecting runs separately.
+result at the annotation. A falsified property gets an inline ✗ marker and a
+diagnostic. Hovering over the annotation runs the generated module through
+Plutus `FromData` and shows the decoded, formatted Haskell value directly in
+the tooltip. A link in the tooltip and the **Pretty-print Haskell CEX** CodeLens
+open the same value beside the specification. Decoded values are cached for
+that verification run. The older report viewer remains available for
+inspecting runs separately.
 
 ## Install locally
 
@@ -55,7 +57,7 @@ Open `FormalSpec.hs` or a `Main.hs` containing a UAL `PROPERTY` annotation and
 click **Check this property** above the annotation, or place the cursor in it
 and run **Blaster: Rerun This Property**. This generates the JSON, runs the
 native checker for that property, and attaches the result to that exact source
-file. The badge and CEX action become stale if the source changes. A detached
+file. The badge and CEX tooltip become stale if the source changes. A detached
 `FormalSpec.hs` works the same way. Template properties such as
 `[scope: uncheckedPurpose] [template: purpose-isolation spending]` are matched
 to their generated ID `uncheckedPurpose_purpose_isolation`.

@@ -65,6 +65,7 @@ process.exit(1);
   const property = propertyForSource(loaded, source, 'wrong_bid');
   assert.equal(property.outcome, 'falsified');
   assert.equal(property.counterexample.ctx, 'V3.ScriptContext');
+  assert.equal(property.counterexampleTypes.ctx, 'V3.ScriptContext');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, false);
   fs.appendFileSync(contract, '-- modified contract\n');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, true);

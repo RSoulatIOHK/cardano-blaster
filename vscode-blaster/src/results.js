@@ -82,6 +82,7 @@ function readResult(file) {
       date: document.date,
       notes: document.reusedCompiledCode ? 'Reused compiled UPLC from a source-matched verified bundle.' : undefined,
       counterexample: document.counterexample || {},
+      counterexampleTypes: document.counterexampleTypes || {},
       replay: document.structuredCounterexample && document.structuredCounterexample.replay,
       haskell: document.haskell,
       nativeReport: document.nativeReport,

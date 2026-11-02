@@ -13,7 +13,7 @@ const {
   sourceState
 } = require('./results');
 const { findProject, runFocused, runProcess } = require('./project');
-const { prettyHaskell } = require('./pretty');
+const { renderCounterexample } = require('./pretty');
 const {
   collectNativeReportFiles,
   counterexamples,
@@ -30,6 +30,7 @@ let decoration;
 let status;
 let lenses;
 let outputChannel;
+const decodedCounterexamples = new Map();
 
 function configuredPath(name) {
   const value = vscode.workspace.getConfiguration('blaster').get(name, '');
@@ -122,7 +123,11 @@ function detail(property) {
 
 function counterexampleText(property) {
   const entries = Object.entries(property.counterexample || {});
-  return entries.length ? entries.map(([name, value]) => `${name} = ${value}`).join(', ') : '';
+  return entries.length ? entries.map(([name, value]) => {
+    const typed = property.counterexampleTypes?.[name] ||
+      (property.nativeReport && /^[A-Z][A-Za-z0-9_]*(?:\.[A-Z][A-Za-z0-9_]*)+$/.test(value));
+    return `${name}${typed ? ' :: ' : ' = '}${value}`;
+  }).join(', ') : '';
 }
 
 function freshnessOf(document, property) {
@@ -275,9 +280,9 @@ class NativeReportLensProvider {
 }
 
 class HoverProvider {
-  provideHover(document, position) {
+  async provideHover(document, position) {
     for (const block of propertyBlocks(document.getText())) {
-      if (!idRangeOf(block).contains(position)) continue;
+      if (!rangeOf(block).contains(position)) continue;
       const property = propertyForSource(state, document.uri.fsPath, block.id);
       if (!property) return new vscode.Hover('No Blaster evidence is loaded for this property.');
       const freshness = freshnessOf(document, property);
@@ -289,11 +294,24 @@ class HoverProvider {
       if (property.date) markdown.appendMarkdown(`Date: ${property.date}  \n`);
       if (property.scriptHash) markdown.appendMarkdown(`Script: \`${property.scriptHash}\`  \n`);
       const model = counterexampleText(property);
-      if (model) markdown.appendMarkdown(`\n**Counterexample**\n\n${model.replaceAll('|', '\\|')}\n`);
+      if (model && !property.nativeReport) markdown.appendMarkdown(`\n**Counterexample**\n\n${model.replaceAll('|', '\\|')}\n`);
       if (property.replay) markdown.appendText(`\nReplay: ${property.replay.status}\n`);
+      if (property.nativeReport && property.outcome === 'falsified' && property.haskellFile) {
+        const commandArgs = encodeURIComponent(JSON.stringify([document.uri.fsPath, block.id]));
+        markdown.isTrusted = { enabledCommands: ['blaster.prettyCounterexample'] };
+        markdown.appendMarkdown(`\n[Open formatted CEX in editor](command:blaster.prettyCounterexample?${commandArgs})\n`);
+        try {
+          const choice = nativeChoiceForProperty(document, block.id, property);
+          const rendered = await decodeCounterexample(choice);
+          markdown.appendMarkdown('\n**Decoded Haskell counterexample**\n');
+          markdown.appendCodeblock(rendered.value, 'haskell');
+        } catch (error) {
+          markdown.appendText(`\nHaskell decoding unavailable: ${error.message}`);
+        }
+      }
       if (property.haskell) markdown.appendCodeblock(property.haskell, 'haskell');
       if (property.notes) markdown.appendText(`\n${property.notes}`);
-      return new vscode.Hover(markdown, idRangeOf(block));
+      return new vscode.Hover(markdown, rangeOf(block));
     }
   }
 }
@@ -374,7 +392,7 @@ async function decodeHaskellCounterexample(selected) {
     { type: 'blaster', task: `decode-${choice.property}` }, vscode.TaskScope.Workspace,
     `Decode Haskell CEX: ${choice.property}`, 'Blaster',
     new vscode.ProcessExecution(config.get('cabalPath', 'cabal'),
-      ['exec', '--disable-tests', '--disable-benchmarks', '--',
+      ['exec', '--verbose=0', '--disable-tests', '--disable-benchmarks', '--',
         'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', file, '-e', 'main'],
       { cwd: plutus, env: environment })
   );
@@ -452,9 +470,16 @@ async function runNativeProperty(project, document, id) {
     refreshResults(false);
     const result = checked.result;
     if (result.outcome === 'falsified' && result.sourceFile) {
-      const action = await vscode.window.showInformationMessage(
-        `${id}: falsified; compiled replay ${result.replay}.`, 'Pretty-print Haskell CEX');
-      if (action) await prettyCounterexample(document.uri, id);
+      const property = propertyForSource(state, document.uri.fsPath, id);
+      try {
+        const choice = nativeChoiceForProperty(document, id, property);
+        void decodeCounterexample(choice).catch((error) =>
+          outputChannel.appendLine(`Haskell decoder: ${error.message}`));
+      } catch (error) {
+        outputChannel.appendLine(`Haskell decoder: ${error.message}`);
+      }
+      vscode.window.showInformationMessage(
+        `${id}: falsified; compiled replay ${result.replay}. Hover over the property to see the decoded CEX.`);
     } else {
       vscode.window.showInformationMessage(`${id}: ${result.outcome}${result.replay ? `; replay ${result.replay}` : ''}.`);
     }
@@ -464,57 +489,69 @@ async function runNativeProperty(project, document, id) {
   }
 }
 
-async function showPrettyCounterexample(choice) {
-  const file = counterexampleFile(choice);
-  if (!file) return;
+function nativeChoiceForProperty(document, propertyId, property) {
+  if (!property?.nativeReport || !property.haskellFile || freshnessOf(document, property).stale) {
+    throw new Error(`No fresh, confirmed Haskell counterexample is attached to ${propertyId}`);
+  }
+  if (sha256File(property.nativeReport) !== property.nativeReportSha256) {
+    throw new Error('Native Blaster report changed since this property result was recorded');
+  }
+  const report = readNativeReport(property.nativeReport);
+  if (inputState(report).length) {
+    throw new Error('Checked blueprint or assurance changed since verification; rerun the property');
+  }
+  const result = report.results.find((item) => item.property === propertyId && item.sourceFile);
+  if (!result || result.sourceFile !== property.haskellFile || !fileState(result.sourceFile, result.sourceHash).matches) {
+    throw new Error('Haskell counterexample no longer matches the native report');
+  }
+  return { ...result, report, originSource: document.uri.fsPath };
+}
+
+function decodeCounterexample(choice) {
+  const file = choice.sourceFile;
+  if (!fileState(file, choice.sourceHash).matches) {
+    return Promise.reject(new Error('Haskell counterexample source changed since verification'));
+  }
   const plutus = plutusCheckout(choice.originSource);
   if (!plutus || !fs.existsSync(path.join(plutus, 'cabal.project'))) {
-    vscode.window.showErrorMessage('Set blaster.plutusPath to a Plutus checkout with cabal.project to decode the Haskell CEX.');
-    return;
+    return Promise.reject(new Error('Set blaster.plutusPath to a Plutus checkout with cabal.project'));
   }
   const config = vscode.workspace.getConfiguration('blaster');
   const environment = config.get('haskellEnvironment', {});
-  outputChannel.show(true);
-  let decoded;
-  try {
-    decoded = await vscode.window.withProgress({
-      location: vscode.ProgressLocation.Notification,
-      title: `Blaster: decoding ${choice.property} with Plutus FromData`
-    }, () => runProcess({
+  const key = `${choice.report.file}:${choice.sourceHash}:${plutus}:${config.get('cabalPath', 'cabal')}:${JSON.stringify(environment)}`;
+  if (!decodedCounterexamples.has(key)) {
+    const pending = runProcess({
       command: config.get('cabalPath', 'cabal'),
-      args: ['exec', '--disable-tests', '--disable-benchmarks', '--',
+      args: ['exec', '--verbose=0', '--disable-tests', '--disable-benchmarks', '--',
         'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', file, '-e', 'main'],
       cwd: plutus,
       env: { ...process.env, ...environment }
-    }, (part) => outputChannel.append(part)));
-  } catch (error) {
-    vscode.window.showErrorMessage(`Could not start the Haskell decoder: ${error.message}`);
-    return;
+    }, (part) => outputChannel.append(part)).then((decoded) => {
+      if (decoded.code !== 0) throw new Error(`Haskell FromData failed (exit ${decoded.code}); see Blaster output`);
+      return renderCounterexample(decoded.stdout, choice, path.basename(file));
+    }).catch((error) => {
+      decodedCounterexamples.delete(key);
+      throw error;
+    });
+    decodedCounterexamples.set(key, pending);
   }
-  if (decoded.code !== 0) {
-    vscode.window.showErrorMessage(`Haskell FromData failed (exit ${decoded.code}). See Blaster output.`);
-    return;
-  }
-  const lines = decoded.stdout.trim().split(/\r?\n/);
-  const pretty = prettyHaskell(lines[0] || '').split('\n').map((line) => `  ${line}`).join('\n');
-  const type = choice.inputs.length === 1 ? choice.inputs[0].sourceType : undefined;
-  const content = [
-    `-- Blaster counterexample: ${choice.property}`,
-    `-- Compiled UPLC replay: ${choice.replay}`,
-    `-- Decoded with Plutus FromData from ${path.basename(file)}`,
-    '',
-    ...(type ? [`counterexample :: ${type}`] : []),
-    'counterexample =',
-    pretty,
-    ...(lines.length > 1 ? ['', '-- Original input bindings:', ...lines.slice(1).map((line) => `-- ${line}`)] : [])
-  ].join('\n');
-  const document = await vscode.workspace.openTextDocument({ language: 'haskell', content });
+  return decodedCounterexamples.get(key);
+}
+
+async function showPrettyCounterexample(choice) {
+  outputChannel.show(true);
+  const rendered = await vscode.window.withProgress({
+    location: vscode.ProgressLocation.Notification,
+    title: `Blaster: decoding ${choice.property} with Plutus FromData`
+  }, () => decodeCounterexample(choice));
+  const document = await vscode.workspace.openTextDocument({ language: 'haskell', content: rendered.content });
   await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
 }
 
 async function prettyCounterexample(uri, propertyId) {
   try {
     if (!uri) uri = vscode.window.activeTextEditor?.document.uri;
+    if (typeof uri === 'string') uri = vscode.Uri.file(uri);
     if (!uri) throw new Error('Open the Haskell property first');
     const document = await vscode.workspace.openTextDocument(uri);
     if (!propertyId) {
@@ -523,21 +560,7 @@ async function prettyCounterexample(uri, propertyId) {
     }
     if (!propertyId) throw new Error('Put the cursor on a UAL PROPERTY annotation');
     const property = propertyForSource(state, uri.fsPath, propertyId);
-    if (!property?.nativeReport || !property.haskellFile || freshnessOf(document, property).stale) {
-      vscode.window.showWarningMessage(`No fresh, confirmed Haskell counterexample is attached to ${propertyId}.`);
-      return;
-    }
-    if (sha256File(property.nativeReport) !== property.nativeReportSha256) {
-      vscode.window.showErrorMessage('Native Blaster report changed since this property result was recorded. Rerun the property.');
-      return;
-    }
-    const report = readNativeReport(property.nativeReport);
-    const result = report.results.find((item) => item.property === propertyId && item.sourceFile);
-    if (!result || result.sourceFile !== property.haskellFile) {
-      vscode.window.showErrorMessage('The Haskell counterexample no longer matches the property result. Rerun the property.');
-      return;
-    }
-    await showPrettyCounterexample({ ...result, report, originSource: document.uri.fsPath });
+    await showPrettyCounterexample(nativeChoiceForProperty(document, propertyId, property));
   } catch (error) {
     vscode.window.showErrorMessage(`Could not open the Haskell counterexample: ${error.message}`);
   }

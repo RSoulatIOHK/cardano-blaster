@@ -141,6 +141,8 @@ async function runFocused(project, source, property, executable, outputRoot, onO
     haskellFile: result.sourceFile,
     counterexample: Object.fromEntries(result.inputs.map((input) =>
       [input.name, input.sourceType || input.expression])),
+    counterexampleTypes: Object.fromEntries(result.inputs.filter((input) => input.sourceType)
+      .map((input) => [input.name, input.sourceType])),
     structuredCounterexample: { replay: { status: result.replay } },
     log: path.join(path.dirname(report.file), 'verification.log')
   };

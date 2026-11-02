@@ -49,4 +49,21 @@ function prettyHaskell(value) {
   return result.trimEnd();
 }
 
-module.exports = { prettyHaskell };
+function renderCounterexample(stdout, choice, fileName) {
+  const lines = stdout.trim().split(/\r?\n/);
+  if (!lines[0]) throw new Error('Haskell decoder produced no value');
+  const pretty = prettyHaskell(lines[0]).split('\n').map((line) => `  ${line}`).join('\n');
+  const type = choice.inputs.length === 1 ? choice.inputs[0].sourceType : undefined;
+  const value = [...(type ? [`counterexample :: ${type}`] : []), 'counterexample =', pretty].join('\n');
+  const content = [
+    `-- Blaster counterexample: ${choice.property}`,
+    `-- Compiled UPLC replay: ${choice.replay}`,
+    `-- Decoded with Plutus FromData from ${fileName}`,
+    '',
+    value,
+    ...(lines.length > 1 ? ['', '-- Original input bindings:', ...lines.slice(1).map((line) => `-- ${line}`)] : [])
+  ].join('\n');
+  return { value, content };
+}
+
+module.exports = { prettyHaskell, renderCounterexample };

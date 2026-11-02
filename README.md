@@ -134,7 +134,8 @@ round trip happen when that module runs, not during `check`.
 
 The [VS Code extension](vscode-blaster/README.md) can run a property directly
 from a Haskell project, show its verdict at the UAL annotation, and decode a
-confirmed counterexample with Plutus `FromData` into a formatted Haskell view.
+confirmed counterexample with Plutus `FromData` directly in the property's
+tooltip or in a formatted Haskell editor view.
 It can also inspect a standalone `report.json`.
 
 To compile and run an exported module, use a GHC environment containing the
