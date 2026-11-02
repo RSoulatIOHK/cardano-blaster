@@ -495,13 +495,18 @@ async function showPrettyCounterexample(choice) {
     vscode.window.showErrorMessage(`Haskell FromData failed (exit ${decoded.code}). See Blaster output.`);
     return;
   }
-  const pretty = decoded.stdout.trim().split(/\r?\n/).map((line) => prettyHaskell(line)).join('\n\n');
+  const lines = decoded.stdout.trim().split(/\r?\n/);
+  const pretty = prettyHaskell(lines[0] || '').split('\n').map((line) => `  ${line}`).join('\n');
+  const type = choice.inputs.length === 1 ? choice.inputs[0].sourceType : undefined;
   const content = [
     `-- Blaster counterexample: ${choice.property}`,
     `-- Compiled UPLC replay: ${choice.replay}`,
     `-- Decoded with Plutus FromData from ${path.basename(file)}`,
     '',
-    pretty
+    ...(type ? [`counterexample :: ${type}`] : []),
+    'counterexample =',
+    pretty,
+    ...(lines.length > 1 ? ['', '-- Original input bindings:', ...lines.slice(1).map((line) => `-- ${line}`)] : [])
   ].join('\n');
   const document = await vscode.workspace.openTextDocument({ language: 'haskell', content });
   await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
