@@ -29,7 +29,8 @@ fs.writeFileSync(path.join(root, 'assurance.json'), JSON.stringify({properties: 
 const fs = require('node:fs');
 const path = require('node:path');
 const args = process.argv.slice(2);
-if (args[0] !== 'check' || args[args.indexOf('--property') + 1] !== 'wrong_bid') process.exit(3);
+if (args[0] !== 'check' || args[args.indexOf('--property') + 1] !== 'wrong_bid' ||
+    args[args.indexOf('--profile') + 1] !== 'cardano-v3-cex') process.exit(3);
 const run = path.join(args[args.indexOf('--output') + 1], 'run');
 fs.mkdirSync(path.join(run, 'counterexamples'), {recursive: true});
 const source = 'main = print "ctx"\\n';
@@ -50,6 +51,7 @@ process.exit(1);
     blueprint: 'plutus.json',
     assurance: 'assurance.json',
     sources: ['src/OnChain.hs'],
+    profile: 'cardano-v3-cex',
     generator: { command: process.execPath, args: ['${projectDir}/generate.js', '${sourceFile}'] }
   }));
   const project = findProject(source);

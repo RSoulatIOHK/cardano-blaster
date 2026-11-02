@@ -28,6 +28,7 @@ function readProject(file) {
       typeof config.generator.command !== 'string' ||
       !Array.isArray(config.generator.args) ||
       !config.generator.args.every((arg) => typeof arg === 'string') ||
+      (config.profile !== undefined && !['core', 'cardano-v3', 'cardano-v3-cex'].includes(config.profile)) ||
       (config.sources !== undefined && (!Array.isArray(config.sources) ||
         !config.sources.every((entry) => typeof entry === 'string')))) {
     throw new Error(`Invalid ${NAME}`);
@@ -40,6 +41,7 @@ function readProject(file) {
     assurance: path.resolve(directory, config.assurance),
     sources: (config.sources || []).map((entry) => path.resolve(directory, entry)),
     generator: config.generator,
+    profile: config.profile,
     refreshEnvironment: config.refreshEnvironment === true
   };
 }
@@ -109,6 +111,7 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   fs.mkdirSync(output, { recursive: true });
   const args = ['check', project.blueprint, project.assurance, '--property', property, '--output', output];
   if (project.refreshEnvironment) args.push('--refresh-environment');
+  if (project.profile) args.push('--profile', project.profile);
   onOutput(`Checking ${property} against compiled UPLC\n`);
   const checked = await runProcess({
     command: executable, args, cwd: project.directory, env: process.env

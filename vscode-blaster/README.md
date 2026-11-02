@@ -30,6 +30,7 @@ Add `cardano-blaster.project.json` in an ancestor of the source file:
   "assurance": "assurance.json",
   "sources": ["Main.hs", "OnChain.hs", "FormalSpec.hs"],
   "refreshEnvironment": true,
+  "profile": "cardano-v3-cex",
   "generator": {
     "command": "./generate-assurance",
     "args": ["${sourceFile}"],
@@ -46,6 +47,9 @@ were regenerated and contain the selected property. Put every contract and
 specification source relevant to the output in `sources`; changes to those
 files invalidate the displayed evidence. The selected `.hs` file is always
 tracked even when omitted from `sources`.
+Set `profile` when the generator starts with an illustrative environment that
+has no `modules` map: use `cardano-v3-cex` for V3 scripts with typed CEX export,
+`cardano-v3` for V3 verification only, or `core` for generic UPLC.
 
 Open `FormalSpec.hs` or a `Main.hs` containing a UAL `PROPERTY` annotation and
 click **Check this property** above the annotation, or place the cursor in it
