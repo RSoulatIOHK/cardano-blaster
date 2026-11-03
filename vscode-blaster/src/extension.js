@@ -237,14 +237,11 @@ class LensProvider {
     return propertyBlocks(document.getText()).flatMap((block) => {
       const property = propertyForDocument(document, block.id);
       const freshness = freshnessOf(document, property);
-      let title = '$(circle-outline) No Blaster evidence';
-      let command = 'blaster.loadResults';
-      let args = [];
-      if (!property && projectAvailable) {
-        title = '$(play) Check this property with Blaster';
-        command = 'blaster.runProperty';
-        args = [document.uri, block.id];
-      }
+      let title = projectAvailable
+        ? '$(play) Check this property with Blaster'
+        : '$(gear) Configure a Blaster project to check';
+      let command = 'blaster.runProperty';
+      let args = [document.uri, block.id];
       if (property) {
         title = freshness.stale
           ? '$(warning) Blaster evidence is stale — rerun'
@@ -301,7 +298,13 @@ class HoverProvider {
     for (const block of propertyBlocks(document.getText())) {
       if (!rangeOf(block).contains(position)) continue;
       const property = propertyForDocument(document, block.id);
-      if (!property) return new vscode.Hover('No Blaster evidence is loaded for this property.');
+      if (!property) {
+        let projectAvailable = false;
+        try { projectAvailable = Boolean(findProject(document.uri.fsPath)); } catch (_) { /* run command reports invalid manifests */ }
+        return new vscode.Hover(projectAvailable
+          ? 'No Blaster result yet. Use **Check this property with Blaster** above the annotation.'
+          : 'No Blaster project is configured for this file. Add `cardano-blaster.project.json` beside the Haskell example, then check this property.');
+      }
       const freshness = freshnessOf(document, property);
       if (freshness.stale) return new vscode.Hover(
         freshness.reason || 'Blaster evidence predates the current Haskell source.', idRangeOf(block));

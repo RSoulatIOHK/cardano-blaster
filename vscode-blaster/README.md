@@ -41,6 +41,9 @@ Add `cardano-blaster.project.json` in an ancestor of the source file:
 }
 ```
 
+Without a manifest, the CodeLens says **Configure a Blaster project to check**;
+the native source check needs a generator target for that Haskell project.
+
 The generator must **recompile the current Haskell sources**, including Plinth
 code, and write the configured blueprint and assurance files. Arguments,
 working directory and environment values may use `${projectDir}`,
