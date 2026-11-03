@@ -4,7 +4,24 @@
   "description": "Check Cardano blueprints and inspect typed Haskell counterexamples alongside UAL properties.",
   "version": "0.2.0",
   "publisher": "iohk",
-  "license": "Apache-2.0",
+  "icon": "images/icon.png",
+  "galleryBanner": {
+    "color": "#070C2A",
+    "theme": "dark"
+  },
+  "keywords": [
+    "Cardano",
+    "Plutus",
+    "Plinth",
+    "UPLC",
+    "formal verification",
+    "counterexample"
+  ],
+  "license": "SEE LICENSE IN LICENSE.txt",
+  "homepage": "https://github.com/RSoulatIOHK/cardano-blaster/tree/main/vscode-blaster",
+  "bugs": {
+    "url": "https://github.com/RSoulatIOHK/cardano-blaster/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/RSoulatIOHK/cardano-blaster.git",
