@@ -5,6 +5,11 @@
   "version": "0.2.0",
   "publisher": "iohk",
   "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/RSoulatIOHK/cardano-blaster.git",
+    "directory": "vscode-blaster"
+  },
   "engines": {
     "vscode": "^1.90.0"
   },
@@ -144,6 +149,13 @@
     }
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "4.0.0"
+  },
+  "overrides": {
+    "minimatch": "11.0.1"
   }
 }

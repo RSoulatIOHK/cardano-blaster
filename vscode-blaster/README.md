@@ -9,7 +9,33 @@ open the same value beside the specification. Decoded values are cached for
 that verification run. The older report viewer remains available for
 inspecting runs separately.
 
-## Install locally
+## Install
+
+For releases containing the extension, download `blaster-assurance-*.vsix` and use
+**Extensions → Install from VSIX…** in VS Code, or run:
+
+```sh
+code --install-extension blaster-assurance-*.vsix
+```
+
+Install a native `cardano-blaster` archive separately and put its `bin` directory
+on `PATH`, or set `blaster.executablePath` to the extracted binary. Checking
+existing blueprint/assurance JSON needs only that CLI. Checking a Haskell
+property from source also needs the corresponding Plutus checkout, Node.js,
+Cabal and GHC to rebuild its bundle; set `blaster.cabalPath`, `blaster.ghcPath`
+and `blaster.plutusPath` if they are not discoverable from `PATH` or the open
+workspace. No path to the extension author's checkout is required.
+
+To build the VSIX from source:
+
+```sh
+cd vscode-blaster
+npm ci
+npm test
+npm run package
+```
+
+## Develop with a local checkout
 
 From the `cardano-blaster` repository root:
 

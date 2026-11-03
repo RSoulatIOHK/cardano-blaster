@@ -136,7 +136,10 @@ The [VS Code extension](vscode-blaster/README.md) can run a property directly
 from a Haskell project, show its verdict at the UAL annotation, and decode a
 confirmed counterexample with Plutus `FromData` directly in the property's
 tooltip or in a formatted Haskell editor view.
-It can also inspect a standalone `report.json`.
+It can also inspect a standalone `report.json`. New releases built with this
+extension include an installable VSIX; source-level checks additionally need that project's Plutus,
+Cabal, GHC and Node.js build environment. Standalone JSON checks use only the
+native CLI.
 
 To compile and run an exported module, use a GHC environment containing the
 Plutus project's `plutus-ledger-api` and `bytestring` packages:
