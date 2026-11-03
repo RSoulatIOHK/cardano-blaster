@@ -769,6 +769,8 @@ function activate(context) {
   status.command = 'blaster.refreshResults';
   lenses = new LensProvider();
   outputChannel = vscode.window.createOutputChannel('Blaster');
+  const projectWatcher = vscode.workspace.createFileSystemWatcher('**/cardano-blaster.project.json');
+  const refreshProjects = () => { refreshEditors(); lenses.refresh(); };
 
   context.subscriptions.push(
     diagnostics,
@@ -776,6 +778,10 @@ function activate(context) {
     status,
     outputChannel,
     lenses.emitter,
+    projectWatcher,
+    projectWatcher.onDidCreate(refreshProjects),
+    projectWatcher.onDidChange(refreshProjects),
+    projectWatcher.onDidDelete(refreshProjects),
     vscode.commands.registerCommand('blaster.loadResults', chooseResults),
     vscode.commands.registerCommand('blaster.refreshResults', () => refreshResults()),
     vscode.commands.registerCommand('blaster.runWorkspaceVerification', runVerification),
