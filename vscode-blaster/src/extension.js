@@ -497,7 +497,6 @@ async function runNativeCheck() {
 
 async function runNativeProperty(project, document, id) {
   outputChannel.clear();
-  outputChannel.show(true);
   try {
     for (const open of vscode.workspace.textDocuments) {
       if (project.sources.includes(open.uri.fsPath) && open.isDirty && !(await open.save())) {
@@ -533,6 +532,7 @@ async function runNativeProperty(project, document, id) {
     }
   } catch (error) {
     outputChannel.appendLine(`\n${error.stack || error.message}`);
+    outputChannel.show(true);
     vscode.window.showErrorMessage(`Blaster could not check ${id}: ${error.message}. See Blaster output.`);
   }
 }
