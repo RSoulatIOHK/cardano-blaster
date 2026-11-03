@@ -40,10 +40,10 @@ npm run package
 From the `cardano-blaster` repository root:
 
 ```sh
-ln -s "$PWD/vscode-blaster" "$HOME/.vscode/extensions/iohk.plinth-blaster-0.2.0"
+ln -s "$PWD/vscode-blaster" "$HOME/.vscode/extensions/IOG.plinth-blaster-0.2.0"
 ```
 
-Reload the VS Code window. If an older `iohk.plinth-blaster-*` link is
+Reload the VS Code window. If an older `IOG.plinth-blaster-*` link is
 installed, replace that link so VS Code loads only this copy. The extension has
 no npm runtime dependencies; `npm test` runs its parser and report tests.
 
