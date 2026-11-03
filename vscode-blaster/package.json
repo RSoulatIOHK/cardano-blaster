@@ -113,7 +113,7 @@
         "blaster.haskellEnvironment": {
           "type": "object",
           "default": {},
-          "description": "Extra environment variables for the Haskell counterexample decoder task."
+          "description": "Extra environment variables for the Haskell project generator and counterexample decoder."
         },
         "blaster.ghcPath": {
           "type": "string",

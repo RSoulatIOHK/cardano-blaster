@@ -180,10 +180,11 @@ function mergeResults(files) {
   return { properties, bySource, allProperties, sourcedIds: boundIds, sourceHashes, errors, files };
 }
 
-function propertyForSource(state, source, id) {
+function propertyForSource(state, source, id, requireSourceBinding = false) {
   const resolved = path.resolve(source);
   const bound = state.bySource.get(resolved);
   if (bound) return bound.get(id);
+  if (requireSourceBinding) return undefined;
   // A result bound to another file must not label an annotation copy by ID.
   if (state.sourcedIds.has(id)) return undefined;
   return state.properties.get(id);
@@ -208,7 +209,7 @@ function sourceState(file, sourceHashes, text, property) {
   for (const [dependency, hash] of Object.entries(property?.sourceHashes || {})) {
     if (path.resolve(dependency) === resolved) continue;
     if (!fs.existsSync(dependency) || sha256File(dependency) !== hash) {
-      return { tracked: true, stale: true, reason: `Haskell source changed since Blaster checked it: ${dependency}` };
+      return { tracked: true, stale: true, reason: `Project input changed since Blaster checked it: ${dependency}` };
     }
   }
   return { tracked: true, stale: false, expected, actual };

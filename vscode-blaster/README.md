@@ -44,11 +44,16 @@ Add `cardano-blaster.project.json` in an ancestor of the source file:
 The generator must **recompile the current Haskell sources**, including Plinth
 code, and write the configured blueprint and assurance files. Arguments,
 working directory and environment values may use `${projectDir}`,
-`${sourceDir}` and `${sourceFile}`. The extension checks that both JSON files
+`${sourceDir}`, `${sourceFile}`, `${extensionDir}`, `${ghcPath}` and
+`${cabalPath}`. The last two come from the corresponding `blaster.*Path`
+settings; the extension path points to the installed copy of this extension.
+An unknown placeholder is an error. The generator inherits
+`blaster.haskellEnvironment` from the source file's workspace folder. The
+extension checks that both JSON files
 were regenerated and contain the selected property. Put every contract and
 specification source relevant to the output in `sources`; changes to those
-files invalidate the displayed evidence. The selected `.hs` file is always
-tracked even when omitted from `sources`.
+files invalidate the displayed evidence. The manifest and selected `.hs` file
+are always tracked even when omitted from `sources`.
 Set `profile` when the generator starts with an illustrative environment that
 has no `modules` map: use `cardano-v3-cex` for V3 scripts with typed CEX export,
 `cardano-v3` for V3 verification only, or `core` for generic UPLC.
@@ -70,6 +75,16 @@ optional GHC path, and an optional output directory for generated JSON. The
 example directory must contain `environment.json`.
 Building Plutus can take time on a cold Cabal cache; a cached executable is
 never substituted for a failed build.
+
+Put a separate manifest beside each independent contract example. The extension
+finds the nearest manifest for the selected Haskell file, uses that folder's
+Blaster settings, and stores its focused runs under a project-specific
+directory in `blaster.outputPath`. It loads reports from every open workspace
+folder. A result without a matching source-file binding cannot label an
+annotation in a manifest project, even if another project has the same property
+ID. Changes to any source listed in that manifest mark that project's result
+stale. For example, the Plutus `Auction` and `PurposeIsolation` examples can
+coexist in one VS Code workspace without sharing badges or CEX pickers.
 
 To decode a confirmed CEX, point `blaster.plutusPath` to a Plutus checkout
 with `cabal.project`, or open that checkout as the workspace. The extension

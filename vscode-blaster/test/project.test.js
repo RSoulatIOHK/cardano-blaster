@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { findProject, runFocused, runProcess } = require('../src/project');
+const { findProject, generatorInvocation, projectResultsRoot, runFocused, runProcess } = require('../src/project');
 const { collectResultFiles, mergeResults, propertyForSource, sourceState } = require('../src/results');
 
 test('checks a Haskell property through its project generator and binds the native CEX to that source', async () => {
@@ -67,6 +67,11 @@ process.exit(1);
   assert.equal(property.counterexample.ctx, 'V3.ScriptContext');
   assert.equal(property.counterexampleTypes.ctx, 'V3.ScriptContext');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, false);
+  const manifest = fs.readFileSync(project.file, 'utf8');
+  fs.appendFileSync(project.file, ' ');
+  assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, true);
+  fs.writeFileSync(project.file, manifest);
+  assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, false);
   fs.appendFileSync(contract, '-- modified contract\n');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, true);
   assert.match(sourceState(source, loaded.sourceHashes, undefined, property).reason, /OnChain.hs/);
@@ -102,4 +107,29 @@ test('Plutus generator builds before running and writes to an isolated bundle di
   assert.equal(result.code, 0, result.stderr);
   assert.equal(fs.existsSync(path.join(bundle, 'plutus.json')), true);
   assert.equal(fs.existsSync(path.join(example, 'plutus.json')), false);
+});
+
+test('generator paths are portable and project result directories do not collide', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blaster-multiproject-'));
+  const projects = ['Auction', 'PurposeIsolation'].map((name) => {
+    const directory = path.join(root, name);
+    fs.mkdirSync(directory);
+    const file = path.join(directory, 'cardano-blaster.project.json');
+    fs.writeFileSync(file, JSON.stringify({
+      format: 'cardano-blaster-project-v1', blueprint: 'plutus.json', assurance: 'assurance.json',
+      generator: { command: 'node', args: ['${extensionDir}/scripts/generate-plutus-ual.js',
+        '${sourceFile}', '${ghcPath}'], env: { BLASTER_CABAL: '${cabalPath}' } }
+    }));
+    return findProject(path.join(directory, 'FormalSpec.hs'));
+  });
+  const [auction, purpose] = projects;
+  assert.notEqual(projectResultsRoot(path.join(root, 'results'), auction),
+    projectResultsRoot(path.join(root, 'results'), purpose));
+  const invocation = generatorInvocation(auction, path.join(auction.directory, 'FormalSpec.hs'), {
+    extensionDir: '/installed/extension', ghcPath: '/toolchain/ghc', cabalPath: '/toolchain/cabal'
+  });
+  assert.deepEqual(invocation.args, ['/installed/extension/scripts/generate-plutus-ual.js',
+    path.join(auction.directory, 'FormalSpec.hs'), '/toolchain/ghc']);
+  assert.equal(invocation.env.BLASTER_CABAL, '/toolchain/cabal');
+  assert.throws(() => generatorInvocation(auction, 'FormalSpec.hs'), /extensionDir.*unavailable/);
 });

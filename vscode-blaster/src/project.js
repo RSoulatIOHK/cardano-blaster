@@ -46,26 +46,36 @@ function readProject(file) {
   };
 }
 
-function expand(value, project, source) {
-  return value.replaceAll('${projectDir}', project.directory)
-    .replaceAll('${sourceFile}', source)
-    .replaceAll('${sourceDir}', path.dirname(source));
+function expand(value, project, source, runtime = {}) {
+  const variables = {
+    projectDir: project.directory,
+    sourceFile: source,
+    sourceDir: path.dirname(source),
+    extensionDir: runtime.extensionDir,
+    ghcPath: runtime.ghcPath || 'ghc',
+    cabalPath: runtime.cabalPath || 'cabal'
+  };
+  return value.replace(/\$\{([^}]+)\}/g, (match, name) => {
+    if (!(name in variables)) throw new Error(`Unknown generator variable ${match}`);
+    if (!variables[name]) throw new Error(`Generator variable ${match} is unavailable`);
+    return variables[name];
+  });
 }
 
-function generatorInvocation(project, source) {
+function generatorInvocation(project, source, runtime = {}) {
   const spec = project.generator;
-  const command = expand(spec.command, project, source);
-  const cwd = path.resolve(project.directory, expand(spec.cwd || '.', project, source));
+  const command = expand(spec.command, project, source, runtime);
+  const cwd = path.resolve(project.directory, expand(spec.cwd || '.', project, source, runtime));
   const environment = {};
   for (const [key, value] of Object.entries(spec.env || {})) {
     if (typeof value !== 'string') throw new Error(`Generator environment ${key} must be a string`);
-    environment[key] = expand(value, project, source);
+    environment[key] = expand(value, project, source, runtime);
   }
   return {
     command: command.includes(path.sep) ? path.resolve(cwd, command) : command,
-    args: spec.args.map((arg) => expand(arg, project, source)),
+    args: spec.args.map((arg) => expand(arg, project, source, runtime)),
     cwd,
-    env: { ...process.env, ...environment }
+    env: { ...process.env, ...runtime.environment, ...environment }
   };
 }
 
@@ -83,17 +93,23 @@ function runProcess(invocation, onOutput = () => {}) {
   });
 }
 
-async function runFocused(project, source, property, executable, outputRoot, onOutput = () => {}) {
+function projectResultsRoot(outputRoot, project) {
+  const key = crypto.createHash('sha256').update(project.file).digest('hex').slice(0, 16);
+  return path.join(outputRoot, 'projects', `${path.basename(project.directory)}-${key}`);
+}
+
+async function runFocused(project, source, property, executable, outputRoot, onOutput = () => {}, runtime = {}) {
   source = path.resolve(source);
   const sourceText = fs.readFileSync(source, 'utf8');
   if (propertyBlocks(sourceText).filter((block) => block.id === property).length !== 1) {
     throw new Error(`Expected exactly one ${property} annotation in ${source}`);
   }
   const sourceHash = sha256File(source);
-  const sourceHashes = Object.fromEntries([source, ...project.sources].map((file) => [file, sha256File(file)]));
+  const sourceHashes = Object.fromEntries([source, project.file, ...project.sources]
+    .map((file) => [file, sha256File(file)]));
   const started = Date.now();
   onOutput(`Generating blueprint and assurance from ${source}\n`);
-  const generated = await runProcess(generatorInvocation(project, source), onOutput);
+  const generated = await runProcess(generatorInvocation(project, source, runtime), onOutput);
   if (generated.code !== 0) throw new Error(`Generator exited with code ${generated.code}`);
   for (const file of [project.blueprint, project.assurance]) {
     if (!fs.existsSync(file) || fs.statSync(file).mtimeMs < started - 1000) {
@@ -151,4 +167,4 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   return { report, result, sidecar, sidecarFile };
 }
 
-module.exports = { findProject, generatorInvocation, readProject, runFocused, runProcess };
+module.exports = { findProject, generatorInvocation, projectResultsRoot, readProject, runFocused, runProcess };

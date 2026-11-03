@@ -146,3 +146,29 @@ test('original and copied annotations with the same ID retain independent fresh 
   state.properties.set('unbound', { id: 'unbound', outcome: 'verified' });
   assert.equal(propertyForSource(state, copy, 'unbound'), undefined);
 });
+
+test('two projects with the same property ID keep their own verdicts', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blaster-two-projects-'));
+  const output = path.join(root, 'results');
+  for (const [name, outcome] of [['Auction', 'verified'], ['PurposeIsolation', 'falsified']]) {
+    const project = path.join(root, name);
+    const run = path.join(output, 'projects', name, 'editor-runs', 'run');
+    fs.mkdirSync(project);
+    fs.mkdirSync(run, { recursive: true });
+    const source = path.join(project, 'FormalSpec.hs');
+    fs.writeFileSync(source, '{-@ PROPERTY [scope: validator] shared : True @-}\n');
+    fs.writeFileSync(path.join(run, 'property-result.json'), JSON.stringify({
+      property: 'shared', outcome, source, sourceSha256: sha256File(source)
+    }));
+  }
+  const loaded = mergeResults(collectResultFiles(output));
+  assert.equal(propertyForSource(loaded, path.join(root, 'Auction', 'FormalSpec.hs'), 'shared', true).outcome, 'verified');
+  assert.equal(propertyForSource(loaded, path.join(root, 'PurposeIsolation', 'FormalSpec.hs'), 'shared', true).outcome, 'falsified');
+  assert.equal(propertyForSource(loaded, path.join(root, 'Third', 'FormalSpec.hs'), 'shared', true), undefined);
+
+  fs.writeFileSync(path.join(output, 'verified-assurance.json'), JSON.stringify({
+    properties: [{ id: 'unbound', evidence: [{ outcome: 'verified' }] }]
+  }));
+  const withHistoricalReport = mergeResults(collectResultFiles(output));
+  assert.equal(propertyForSource(withHistoricalReport, path.join(root, 'Auction', 'FormalSpec.hs'), 'unbound', true), undefined);
+});
