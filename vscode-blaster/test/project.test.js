@@ -135,7 +135,7 @@ test('generator paths are portable and project result directories do not collide
   assert.throws(() => generatorInvocation(auction, 'FormalSpec.hs'), /extensionDir.*unavailable/);
 });
 
-test('infers a Plutus UAL manifest from a Cabal executable, including detached specification and local modules', () => {
+test('infers a Plutus UAL manifest without JSON inputs and generates its bootstrap environment', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blaster-infer-'));
   fs.writeFileSync(path.join(root, 'cabal.assurance.project'), 'packages: doc/examples\n');
   const packageDir = path.join(root, 'doc', 'examples');
@@ -159,12 +159,9 @@ executable example-ual-auction
   build-depends: base
 `);
   fs.writeFileSync(path.join(exampleDir, 'Main.hs'), 'main = writeInterfaceBundleWithFunctions environment spec blueprint\n');
-  fs.writeFileSync(path.join(exampleDir, 'FormalSpec.hs'), '{-@ PROPERTY [scope: auction] p : True @-}\n');
+  fs.writeFileSync(path.join(exampleDir, 'FormalSpec.hs'), '{-@ PROPERTY [scope: auction] p : ∀ (ctx : ScriptContext), True @-}\n');
   fs.writeFileSync(path.join(exampleDir, 'OnChain.hs'), 'module OnChain where\n');
   fs.writeFileSync(path.join(sourceRoot, 'AuctionValidator.hs'), 'module AuctionValidator where\n');
-  fs.writeFileSync(path.join(exampleDir, 'environment.json'), JSON.stringify({
-    requiredImports: ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3']
-  }));
   const source = path.join(exampleDir, 'FormalSpec.hs');
   assert.equal(findProject(source), undefined);
   const inferred = inferPlutusProject(source);
@@ -174,10 +171,28 @@ executable example-ual-auction
   assert.ok(inferred.config.sources.includes('../../../AuctionValidator.hs'));
   assert.ok(inferred.config.sources.includes('FormalSpec.hs'));
   assert.ok(inferred.config.sources.includes('OnChain.hs'));
+  assert.ok(!inferred.config.sources.includes('environment.json'));
   const project = createInferredProject(source);
   assert.equal(project.directory, exampleDir);
   assert.equal(project.profile, 'cardano-v3-cex');
   assert.equal(createInferredProject(source).file, project.file);
   assert.equal(findProject(source).file, project.file);
   assert.equal(inferPlutusProject(path.join(packageDir, 'Other.hs')), undefined);
+  const producer = path.join(root, 'producer');
+  fs.writeFileSync(producer, `#!${process.execPath}\nconst fs=require('node:fs');if(!JSON.parse(fs.readFileSync('environment.json')).requiredImports.includes('CardanoLedgerApi.V3'))process.exit(5);fs.writeFileSync('plutus.json','{}');fs.writeFileSync('assurance.json','{}');`);
+  fs.chmodSync(producer, 0o755);
+  const cabal = path.join(root, 'fake-cabal');
+  fs.writeFileSync(cabal, `#!${process.execPath}\nif(process.argv[2]==='list-bin')console.log('${producer}');else if(process.argv[2]!=='build')process.exit(3);`);
+  fs.chmodSync(cabal, 0o755);
+  const bundle = path.join(exampleDir, '.local', 'cardano-blaster');
+  const generated = await runProcess({
+    command: process.execPath,
+    args: [path.resolve(__dirname, '../scripts/generate-plutus-ual.js'),
+      inferred.config.generator.args[1], exampleDir, '', bundle],
+    cwd: root,
+    env: { ...process.env, BLASTER_CABAL: cabal }
+  });
+  assert.equal(generated.code, 0, generated.stderr);
+  assert.equal(fs.existsSync(path.join(bundle, 'environment.json')), true);
+  assert.equal(fs.existsSync(path.join(exampleDir, 'environment.json')), false);
 });

@@ -24,14 +24,33 @@ while (!fs.existsSync(path.join(root, 'cabal.assurance.project'))) {
 }
 const example = path.resolve(exampleDir);
 const environment = path.join(example, 'environment.json');
-if (!fs.existsSync(environment)) {
-  process.stderr.write(`Missing ${environment}\n`);
-  process.exit(2);
-}
 const cabal = process.env.BLASTER_CABAL || 'cabal';
 const bundle = bundleDir ? path.resolve(bundleDir) : example;
 fs.mkdirSync(bundle, { recursive: true });
-if (bundle !== example) fs.copyFileSync(environment, path.join(bundle, 'environment.json'));
+if (fs.existsSync(environment)) {
+  if (bundle !== example) fs.copyFileSync(environment, path.join(bundle, 'environment.json'));
+} else {
+  const manifest = path.join(example, 'cardano-blaster.project.json');
+  if (!fs.existsSync(manifest)) {
+    process.stderr.write(`Missing ${environment} and ${manifest}\n`);
+    process.exit(2);
+  }
+  const profile = JSON.parse(fs.readFileSync(manifest, 'utf8')).profile;
+  const imports = {
+    core: ['PlutusCore.UPLC.BlueprintEncoding.Assurance'],
+    'cardano-v3': ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3'],
+    'cardano-v3-cex': ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3']
+  }[profile];
+  if (!imports) {
+    process.stderr.write(`Cannot generate environment.json for profile ${profile}\n`);
+    process.exit(2);
+  }
+  fs.writeFileSync(path.join(bundle, 'environment.json'), `${JSON.stringify({
+    format: 'illustrative-unpinned-environment',
+    requiredImports: imports,
+    description: 'Bootstrap reference only; cardano-blaster captures the actual checking environment before verification.'
+  }, null, 2)}\n`);
+}
 const flags = [`--project-file=${path.join(root, 'cabal.assurance.project')}`];
 if (compiler) flags.push(`--with-compiler=${compiler}`);
 

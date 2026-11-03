@@ -86,7 +86,6 @@ function inferPlutusProject(source) {
   const candidates = cabalFiles.flatMap(cabalExecutables).filter(({ mainFile }) => {
     const projectDir = path.dirname(mainFile);
     return within(projectDir, source) &&
-      fs.existsSync(path.join(projectDir, 'environment.json')) &&
       /\bwriteInterfaceBundle(?:With[A-Za-z0-9_]*)?\b/.test(fs.readFileSync(mainFile, 'utf8'));
   });
   if (!candidates.length) return undefined;
@@ -98,11 +97,17 @@ function inferPlutusProject(source) {
   const projectDir = path.dirname(best.mainFile);
   const moduleFiles = best.otherModules.map((name) =>
     path.join(best.sourceRoot, ...name.split('.')) + '.hs').filter((file) => fs.existsSync(file));
-  const sources = [...new Set([...haskellFiles(projectDir), ...moduleFiles,
-    best.cabalFile, path.join(projectDir, 'environment.json')])]
+  const projectHaskellFiles = haskellFiles(projectDir);
+  const environmentFile = path.join(projectDir, 'environment.json');
+  const sources = [...new Set([...projectHaskellFiles, ...moduleFiles,
+    best.cabalFile, ...(fs.existsSync(environmentFile) ? [environmentFile] : [])])]
     .map((file) => path.relative(projectDir, file)).sort();
-  const requiredImports = JSON.parse(fs.readFileSync(path.join(projectDir, 'environment.json'), 'utf8')).requiredImports || [];
-  const profile = requiredImports.includes('CardanoLedgerApi.V3') ? 'cardano-v3-cex' : 'core';
+  const requiredImports = fs.existsSync(environmentFile)
+    ? JSON.parse(fs.readFileSync(environmentFile, 'utf8')).requiredImports || [] : [];
+  const hasCardanoTypes = projectHaskellFiles.some((file) =>
+    /\b(?:ScriptContext|TxInfo|ScriptInfo)\b|\bCardanoLedgerApi\.V3\b/.test(fs.readFileSync(file, 'utf8')));
+  const profile = requiredImports.includes('CardanoLedgerApi.V3') || hasCardanoTypes
+    ? 'cardano-v3-cex' : 'core';
   return {
     directory: projectDir,
     config: {

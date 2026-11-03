@@ -84,6 +84,11 @@ function nativeExecutable(source) {
 function propertyForDocument(document, id) {
   let project;
   try { project = findProject(document.uri.fsPath); } catch (_) { return undefined; }
+  // A removed manifest means the example is being set up afresh. Do not show
+  // evidence from its previous project configuration while it is absent.
+  if (!project) {
+    try { if (inferPlutusProject(document.uri.fsPath)) return undefined; } catch (_) { return undefined; }
+  }
   return propertyForSource(state, document.uri.fsPath, id, Boolean(project));
 }
 

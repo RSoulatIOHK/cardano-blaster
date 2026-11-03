@@ -26,9 +26,11 @@ no npm runtime dependencies; `npm test` runs its parser and report tests.
 For Plutus UAL examples, click **Set up and check this property with Blaster**.
 When an unambiguous Cabal executable has `Main.hs` calling a
 `writeInterfaceBundle` function, the extension
-finds its Cabal target, `environment.json`, and local Haskell sources, then
+finds its Cabal target and local Haskell sources, then
 creates `cardano-blaster.project.json` beside `Main.hs` before compiling and
-checking the selected property. This also works from a detached
+checking the selected property. If the example has no `environment.json`, the
+generator creates a bootstrap reference in `.local/cardano-blaster`; the checker
+captures the actual Lean environment with `--refresh-environment`. This also works from a detached
 `FormalSpec.hs`. The generated file can be reviewed and committed with the
 contract. If Cabal has multiple matching executables or the project uses a
 different bundle generator, configure the build recipe explicitly.
@@ -86,7 +88,8 @@ generator that builds a Cabal executable from source, finds its binary, and
 runs it in the example directory. Set the manifest's `generator.command` to
 `node` and `args` to the script path, Cabal target, `${projectDir}`, an
 optional GHC path, and an optional output directory for generated JSON. The
-example directory must contain `environment.json`.
+example directory may contain an `environment.json` reference; otherwise the
+generator derives one from the manifest profile in its output directory.
 Building Plutus can take time on a cold Cabal cache; a cached executable is
 never substituted for a failed build.
 
