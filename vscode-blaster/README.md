@@ -1,7 +1,7 @@
-# Blaster Assurance
+# Plinth Blaster
 
 Check Plinth UAL properties against compiled UPLC without leaving your Haskell
-editor. Blaster Assurance runs the native cardano-blaster verifier and attaches
+editor. Plinth Blaster runs the native cardano-blaster verifier and attaches
 the result to the property that produced it. When a claim is falsified and UPLC
 replay confirms the witness, you can inspect the counterexample in the editor.
 

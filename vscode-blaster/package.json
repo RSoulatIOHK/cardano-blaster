@@ -1,6 +1,6 @@
 {
-  "name": "blaster-assurance",
-  "displayName": "Blaster Assurance",
+  "name": "plinth-blaster",
+  "displayName": "Plinth Blaster",
   "description": "Check Cardano blueprints and inspect typed Haskell counterexamples alongside UAL properties.",
   "version": "0.2.0",
   "publisher": "iohk",

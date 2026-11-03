@@ -1,4 +1,4 @@
-# Cardano Blaster for VS Code
+# Plinth Blaster reference
 
 This extension checks UAL properties from a Haskell project and displays the
 result at the annotation. A falsified property gets an inline ✗ marker and a
@@ -11,11 +11,11 @@ inspecting runs separately.
 
 ## Install
 
-For releases containing the extension, download `blaster-assurance-*.vsix` and use
+For releases containing the extension, download `plinth-blaster-*.vsix` and use
 **Extensions → Install from VSIX…** in VS Code, or run:
 
 ```sh
-code --install-extension blaster-assurance-*.vsix
+code --install-extension plinth-blaster-*.vsix
 ```
 
 Install a native `cardano-blaster` archive separately and put its `bin` directory
@@ -40,10 +40,10 @@ npm run package
 From the `cardano-blaster` repository root:
 
 ```sh
-ln -s "$PWD/vscode-blaster" "$HOME/.vscode/extensions/iohk.blaster-assurance-0.2.0"
+ln -s "$PWD/vscode-blaster" "$HOME/.vscode/extensions/iohk.plinth-blaster-0.2.0"
 ```
 
-Reload the VS Code window. If an older `iohk.blaster-assurance-*` link is
+Reload the VS Code window. If an older `iohk.plinth-blaster-*` link is
 installed, replace that link so VS Code loads only this copy. The extension has
 no npm runtime dependencies; `npm test` runs its parser and report tests.
 
