@@ -10,6 +10,130 @@ const { propertyBlocks, sha256File } = require('./results');
 const FORMAT = 'cardano-blaster-project-v1';
 const NAME = 'cardano-blaster.project.json';
 
+function within(directory, file) {
+  const relative = path.relative(directory, file);
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function cabalFields(lines) {
+  const fields = new Map();
+  let current;
+  for (const line of lines) {
+    const match = /^\s+([A-Za-z][\w-]*):\s*(.*?)\s*$/.exec(line);
+    if (match) {
+      current = match[1];
+      fields.set(current, match[2]);
+    } else if (current && /^\s+\S/.test(line) && !/^\s*--/.test(line)) {
+      fields.set(current, `${fields.get(current)} ${line.trim()}`);
+    }
+  }
+  return fields;
+}
+
+function cabalExecutables(file) {
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  const packageName = /^name:\s*(\S+)/mi.exec(lines.join('\n'))?.[1];
+  if (!packageName) return [];
+  const executables = [];
+  for (let i = 0; i < lines.length; i++) {
+    const match = /^executable\s+(\S+)\s*(?:--.*)?$/i.exec(lines[i]);
+    if (!match) continue;
+    const body = [];
+    while (++i < lines.length && (!/^\S/.test(lines[i]) || /^\s*--/.test(lines[i]))) body.push(lines[i]);
+    i--;
+    const fields = cabalFields(body);
+    const main = fields.get('main-is');
+    if (!main || !/\.hs$/.test(main)) continue;
+    const roots = (fields.get('hs-source-dirs') || '.').split(/\s+/).filter(Boolean);
+    for (const root of roots) {
+      const sourceRoot = path.resolve(path.dirname(file), root);
+      const mainFile = path.resolve(sourceRoot, main);
+      if (fs.existsSync(mainFile)) executables.push({
+        target: `${packageName}:exe:${match[1]}`, mainFile, sourceRoot,
+        otherModules: (fields.get('other-modules') || '').split(/\s+/).filter(Boolean),
+        cabalFile: file
+      });
+    }
+  }
+  return executables;
+}
+
+function haskellFiles(directory) {
+  const found = [];
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue;
+    const file = path.join(directory, entry.name);
+    if (entry.isDirectory()) found.push(...haskellFiles(file));
+    else if (entry.isFile() && entry.name.endsWith('.hs')) found.push(file);
+  }
+  return found;
+}
+
+// This convention is specific to Plutus UAL bundle-producing Cabal executables.
+// Other Haskell projects still need to provide their own generator recipe.
+function inferPlutusProject(source) {
+  source = path.resolve(source);
+  let directory = path.dirname(source);
+  const cabalFiles = [];
+  while (true) {
+    cabalFiles.push(...fs.readdirSync(directory).filter((name) => name.endsWith('.cabal'))
+      .map((name) => path.join(directory, name)));
+    if (fs.existsSync(path.join(directory, 'cabal.assurance.project'))) break;
+    const parent = path.dirname(directory);
+    if (parent === directory) return undefined;
+    directory = parent;
+  }
+  const candidates = cabalFiles.flatMap(cabalExecutables).filter(({ mainFile }) => {
+    const projectDir = path.dirname(mainFile);
+    return within(projectDir, source) &&
+      fs.existsSync(path.join(projectDir, 'environment.json')) &&
+      /\bwriteInterfaceBundle(?:With[A-Za-z0-9_]*)?\b/.test(fs.readFileSync(mainFile, 'utf8'));
+  });
+  if (!candidates.length) return undefined;
+  candidates.sort((a, b) => path.dirname(b.mainFile).length - path.dirname(a.mainFile).length);
+  const best = candidates[0];
+  if (candidates[1] && path.dirname(candidates[1].mainFile) === path.dirname(best.mainFile)) {
+    throw new Error(`Multiple Cabal executables produce a UAL bundle for ${source}; add ${NAME} explicitly`);
+  }
+  const projectDir = path.dirname(best.mainFile);
+  const moduleFiles = best.otherModules.map((name) =>
+    path.join(best.sourceRoot, ...name.split('.')) + '.hs').filter((file) => fs.existsSync(file));
+  const sources = [...new Set([...haskellFiles(projectDir), ...moduleFiles,
+    best.cabalFile, path.join(projectDir, 'environment.json')])]
+    .map((file) => path.relative(projectDir, file)).sort();
+  const requiredImports = JSON.parse(fs.readFileSync(path.join(projectDir, 'environment.json'), 'utf8')).requiredImports || [];
+  const profile = requiredImports.includes('CardanoLedgerApi.V3') ? 'cardano-v3-cex' : 'core';
+  return {
+    directory: projectDir,
+    config: {
+      format: FORMAT,
+      blueprint: '.local/cardano-blaster/plutus.json',
+      assurance: '.local/cardano-blaster/assurance.json',
+      sources,
+      profile,
+      refreshEnvironment: true,
+      generator: {
+        command: 'node',
+        args: ['${extensionDir}/scripts/generate-plutus-ual.js', best.target,
+          '${projectDir}', '${ghcPath}', '${projectDir}/.local/cardano-blaster'],
+        env: { BLASTER_CABAL: '${cabalPath}' }
+      }
+    }
+  };
+}
+
+function createInferredProject(source) {
+  const inferred = inferPlutusProject(source);
+  if (!inferred) return undefined;
+  const file = path.join(inferred.directory, NAME);
+  try {
+    fs.writeFileSync(file, `${JSON.stringify(inferred.config, null, 2)}\n`, { flag: 'wx' });
+  } catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+  }
+  return readProject(file);
+}
+
 function findProject(source) {
   let directory = path.dirname(path.resolve(source));
   while (true) {
@@ -167,4 +291,5 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   return { report, result, sidecar, sidecarFile };
 }
 
-module.exports = { findProject, generatorInvocation, projectResultsRoot, readProject, runFocused, runProcess };
+module.exports = { createInferredProject, findProject, generatorInvocation, inferPlutusProject,
+  projectResultsRoot, readProject, runFocused, runProcess };

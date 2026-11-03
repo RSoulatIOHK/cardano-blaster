@@ -5,7 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const test = require('node:test');
-const { findProject, generatorInvocation, projectResultsRoot, runFocused, runProcess } = require('../src/project');
+const { createInferredProject, findProject, generatorInvocation, inferPlutusProject,
+  projectResultsRoot, runFocused, runProcess } = require('../src/project');
 const { collectResultFiles, mergeResults, propertyForSource, sourceState } = require('../src/results');
 
 test('checks a Haskell property through its project generator and binds the native CEX to that source', async () => {
@@ -132,4 +133,51 @@ test('generator paths are portable and project result directories do not collide
     path.join(auction.directory, 'FormalSpec.hs'), '/toolchain/ghc']);
   assert.equal(invocation.env.BLASTER_CABAL, '/toolchain/cabal');
   assert.throws(() => generatorInvocation(auction, 'FormalSpec.hs'), /extensionDir.*unavailable/);
+});
+
+test('infers a Plutus UAL manifest from a Cabal executable, including detached specification and local modules', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blaster-infer-'));
+  fs.writeFileSync(path.join(root, 'cabal.assurance.project'), 'packages: doc/examples\n');
+  const packageDir = path.join(root, 'doc', 'examples');
+  const sourceRoot = path.join(packageDir, 'static', 'code');
+  const exampleDir = path.join(sourceRoot, 'Example', 'Ual', 'Auction');
+  fs.mkdirSync(exampleDir, { recursive: true });
+  fs.writeFileSync(path.join(packageDir, 'examples.cabal'), `name: docusaurus-examples
+version: 1.0
+
+executable unrelated
+  main-is: Example/Other/Main.hs
+  hs-source-dirs: static/code
+
+executable example-ual-auction
+  main-is: Example/Ual/Auction/Main.hs
+  hs-source-dirs: static/code
+  other-modules:
+    AuctionValidator
+    Example.Ual.Auction.FormalSpec
+    Example.Ual.Auction.OnChain
+  build-depends: base
+`);
+  fs.writeFileSync(path.join(exampleDir, 'Main.hs'), 'main = writeInterfaceBundleWithFunctions environment spec blueprint\n');
+  fs.writeFileSync(path.join(exampleDir, 'FormalSpec.hs'), '{-@ PROPERTY [scope: auction] p : True @-}\n');
+  fs.writeFileSync(path.join(exampleDir, 'OnChain.hs'), 'module OnChain where\n');
+  fs.writeFileSync(path.join(sourceRoot, 'AuctionValidator.hs'), 'module AuctionValidator where\n');
+  fs.writeFileSync(path.join(exampleDir, 'environment.json'), JSON.stringify({
+    requiredImports: ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3']
+  }));
+  const source = path.join(exampleDir, 'FormalSpec.hs');
+  assert.equal(findProject(source), undefined);
+  const inferred = inferPlutusProject(source);
+  assert.equal(inferred.directory, exampleDir);
+  assert.equal(inferred.config.profile, 'cardano-v3-cex');
+  assert.equal(inferred.config.generator.args[1], 'docusaurus-examples:exe:example-ual-auction');
+  assert.ok(inferred.config.sources.includes('../../../AuctionValidator.hs'));
+  assert.ok(inferred.config.sources.includes('FormalSpec.hs'));
+  assert.ok(inferred.config.sources.includes('OnChain.hs'));
+  const project = createInferredProject(source);
+  assert.equal(project.directory, exampleDir);
+  assert.equal(project.profile, 'cardano-v3-cex');
+  assert.equal(createInferredProject(source).file, project.file);
+  assert.equal(findProject(source).file, project.file);
+  assert.equal(inferPlutusProject(path.join(packageDir, 'Other.hs')), undefined);
 });

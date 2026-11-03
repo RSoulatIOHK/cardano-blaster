@@ -23,7 +23,17 @@ no npm runtime dependencies; `npm test` runs its parser and report tests.
 
 ## Check from a Haskell property
 
-Add `cardano-blaster.project.json` in an ancestor of the source file:
+For Plutus UAL examples, click **Set up and check this property with Blaster**.
+When an unambiguous Cabal executable has `Main.hs` calling a
+`writeInterfaceBundle` function, the extension
+finds its Cabal target, `environment.json`, and local Haskell sources, then
+creates `cardano-blaster.project.json` beside `Main.hs` before compiling and
+checking the selected property. This also works from a detached
+`FormalSpec.hs`. The generated file can be reviewed and committed with the
+contract. If Cabal has multiple matching executables or the project uses a
+different bundle generator, configure the build recipe explicitly.
+
+The manifest format is:
 
 ```json
 {
@@ -41,8 +51,9 @@ Add `cardano-blaster.project.json` in an ancestor of the source file:
 }
 ```
 
-Without a manifest, the CodeLens says **Configure a Blaster project to check**;
-the native source check needs a generator target for that Haskell project.
+Without a manifest or an inferable Plutus bundle producer, the CodeLens says
+**Configure a Blaster project to check**; the native source check needs a
+generator target for that Haskell project.
 
 The generator must **recompile the current Haskell sources**, including Plinth
 code, and write the configured blueprint and assurance files. Arguments,

@@ -12,7 +12,8 @@ const {
   sha256File,
   sourceState
 } = require('./results');
-const { findProject, projectResultsRoot, runFocused, runProcess } = require('./project');
+const { createInferredProject, findProject, inferPlutusProject,
+  projectResultsRoot, runFocused, runProcess } = require('./project');
 const { renderCounterexample } = require('./pretty');
 const {
   collectNativeReportFiles,
@@ -232,14 +233,21 @@ class LensProvider {
   }
 
   provideCodeLenses(document) {
+    const blocks = propertyBlocks(document.getText());
+    if (!blocks.length) return [];
     let projectAvailable = false;
     try { projectAvailable = Boolean(findProject(document.uri.fsPath)); } catch (_) { /* command reports invalid manifests */ }
-    return propertyBlocks(document.getText()).flatMap((block) => {
+    let canInfer = false;
+    if (!projectAvailable) {
+      try { canInfer = Boolean(inferPlutusProject(document.uri.fsPath)); } catch (_) { /* command reports ambiguity */ }
+    }
+    return blocks.flatMap((block) => {
       const property = propertyForDocument(document, block.id);
       const freshness = freshnessOf(document, property);
       let title = projectAvailable
         ? '$(play) Check this property with Blaster'
-        : '$(gear) Configure a Blaster project to check';
+        : canInfer ? '$(play) Set up and check this property with Blaster'
+          : '$(gear) Configure a Blaster project to check';
       let command = 'blaster.runProperty';
       let args = [document.uri, block.id];
       if (property) {
@@ -301,9 +309,15 @@ class HoverProvider {
       if (!property) {
         let projectAvailable = false;
         try { projectAvailable = Boolean(findProject(document.uri.fsPath)); } catch (_) { /* run command reports invalid manifests */ }
+        let canInfer = false;
+        if (!projectAvailable) {
+          try { canInfer = Boolean(inferPlutusProject(document.uri.fsPath)); } catch (_) { /* command reports ambiguity */ }
+        }
         return new vscode.Hover(projectAvailable
           ? 'No Blaster result yet. Use **Check this property with Blaster** above the annotation.'
-          : 'No Blaster project is configured for this file. Add `cardano-blaster.project.json` beside the Haskell example, then check this property.');
+          : canInfer
+            ? 'Blaster found the Cabal bundle producer. Use **Set up and check this property with Blaster** above the annotation; the project manifest will be created automatically.'
+            : 'No Blaster project is configured for this file. Add `cardano-blaster.project.json` with the build recipe, then check this property.');
       }
       const freshness = freshnessOf(document, property);
       if (freshness.stale) return new vscode.Hover(
@@ -695,9 +709,9 @@ async function runProperty(uri, propertyId) {
   }
   let project;
   try {
-    project = findProject(document.uri.fsPath);
+    project = findProject(document.uri.fsPath) || createInferredProject(document.uri.fsPath);
   } catch (error) {
-    vscode.window.showErrorMessage(`Invalid Blaster project: ${error.message}`);
+    vscode.window.showErrorMessage(`Blaster project setup failed: ${error.message}`);
     return;
   }
   if (project) {
@@ -706,7 +720,7 @@ async function runProperty(uri, propertyId) {
   }
   const { values, missing } = requiredRunConfiguration();
   if (missing.length) {
-    vscode.window.showErrorMessage(`Add cardano-blaster.project.json to this Haskell project to use the native checker, or configure the legacy Blaster paths: ${missing.join(', ')}.`);
+    vscode.window.showErrorMessage(`Blaster could not infer a UAL bundle-producing Cabal target for this file. Add cardano-blaster.project.json with its generator recipe, or configure the legacy Blaster paths: ${missing.join(', ')}.`);
     return;
   }
   const example = path.basename(path.dirname(document.uri.fsPath)).toLowerCase();
