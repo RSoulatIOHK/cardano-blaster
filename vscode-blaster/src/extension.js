@@ -554,6 +554,7 @@ async function runNativeProperty(project, document, id) {
     }
   } catch (error) {
     outputChannel.appendLine(`\n${error.stack || error.message}`);
+    if (error.report) outputChannel.appendLine(`Report: ${error.report}`);
     outputChannel.show(true);
     vscode.window.showErrorMessage(`Blaster could not check ${id}: ${error.message}. See Blaster output.`);
   }

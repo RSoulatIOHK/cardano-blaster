@@ -227,6 +227,15 @@ function projectResultsRoot(outputRoot, project) {
   return path.join(outputRoot, 'projects', `${path.basename(project.directory)}-${key}`);
 }
 
+function nativeFailureReason(failure, exitCode) {
+  const fallback = failure.error || `exit code ${exitCode}`;
+  if (!fallback.startsWith('checker did not produce a complete report')) return fallback;
+  const actionable = String(failure.diagnostics || '').split(/\r?\n/)
+    .map((line) => /\berror(?:\([^)]*\))?:\s*(.+)$/.exec(line)?.[1])
+    .find((message) => message && message !== 'formal proposition contains sorry');
+  return actionable || fallback;
+}
+
 async function runFocused(project, source, property, executable, outputRoot, onOutput = () => {}, runtime = {}) {
   source = path.resolve(source);
   const sourceText = fs.readFileSync(source, 'utf8');
@@ -265,7 +274,9 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   if (reports.length !== 1) throw new Error(`cardano-blaster exited with code ${checked.code}; expected one native report, found ${reports.length}`);
   if (![0, 1, 2].includes(checked.code)) {
     const failure = JSON.parse(fs.readFileSync(reports[0], 'utf8'));
-    throw new Error(`cardano-blaster: ${failure.error || `exit code ${checked.code}`} (report: ${reports[0]})`);
+    const error = new Error(`cardano-blaster: ${nativeFailureReason(failure, checked.code)}`);
+    error.report = reports[0];
+    throw error;
   }
   const report = readNativeReport(reports[0]);
   for (const [file, hash] of Object.entries(sourceHashes)) {

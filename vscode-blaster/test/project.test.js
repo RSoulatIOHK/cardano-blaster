@@ -83,7 +83,14 @@ process.exit(1);
     .replace("format:'cardano-blaster-check-v1'", "error:'property not found: modules',format:'cardano-blaster-check-v1'")
     .replace('process.exit(1);', 'process.exit(3);'));
   await assert.rejects(runFocused(project, source, 'wrong_bid', checker, output),
-    /cardano-blaster: property not found: modules \(report:/);
+    (error) => error.message === 'cardano-blaster: property not found: modules' &&
+      error.report.endsWith('report.json'));
+  fs.writeFileSync(checker, fs.readFileSync(checker, 'utf8')
+    .replace("error:'property not found: modules'",
+      "error:'checker did not produce a complete report; see verification.log',diagnostics:" +
+      JSON.stringify("Check.lean:1:20: error(lean.unknownIdentifier): Unknown identifier `isSccessful`\nCheck.lean:2:0: error: formal proposition contains sorry")));
+  await assert.rejects(runFocused(project, source, 'wrong_bid', checker, output),
+    /cardano-blaster: Unknown identifier `isSccessful`/);
 });
 
 test('Plutus generator builds before running and writes to an isolated bundle directory', async () => {
