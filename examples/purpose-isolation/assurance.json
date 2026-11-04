@@ -8,40 +8,47 @@
     "uri": "plutus.json"
   },
   "checkingContexts": {
-    "spendingOnly_purpose_isolation": {
-      "uri": "checking-spendingOnly_purpose_isolation.json",
+    "parameterizedSpending_accepts_some_context": {
       "hash": {
         "alg": "sha256",
-        "digest": "e3daa04f59a4493625f7386f8147808087a7207bc70c18647c8ebeb7427774bf"
-      }
-    },
-    "spendingAndMinting_purpose_isolation": {
-      "uri": "checking-spendingAndMinting_purpose_isolation.json",
-      "hash": {
-        "alg": "sha256",
-        "digest": "93f835dc7ca326b6d0a8a95b51389274d14841d1be9edb3ff4ebe1ee0a324a27"
-      }
+        "digest": "705e6aba4500882912b68cbd1bbf46db7619dd1283a6417bc717298f789da680"
+      },
+      "uri": "checking-parameterizedSpending_accepts_some_context.json"
     },
     "parameterizedSpending_purpose_isolation": {
-      "uri": "checking-parameterizedSpending_purpose_isolation.json",
       "hash": {
         "alg": "sha256",
-        "digest": "31f41c3c53cbd275b2f459de1948b402fec1f98a73dc0cc8e4ccb3a861d4e341"
-      }
+        "digest": "705e6aba4500882912b68cbd1bbf46db7619dd1283a6417bc717298f789da680"
+      },
+      "uri": "checking-parameterizedSpending_purpose_isolation.json"
     },
-    "spending_accepted": {
-      "uri": "checking-spending_accepted.json",
+    "spendingAndMinting_accepts_some_context": {
       "hash": {
         "alg": "sha256",
-        "digest": "e3daa04f59a4493625f7386f8147808087a7207bc70c18647c8ebeb7427774bf"
-      }
+        "digest": "3c5c9cee480e68ed86e7c7c8111867d81dda704f4aa28c69a3533344f38244cf"
+      },
+      "uri": "checking-spendingAndMinting_accepts_some_context.json"
     },
-    "minting_accepted": {
-      "uri": "checking-minting_accepted.json",
+    "spendingAndMinting_purpose_isolation": {
       "hash": {
         "alg": "sha256",
-        "digest": "93f835dc7ca326b6d0a8a95b51389274d14841d1be9edb3ff4ebe1ee0a324a27"
-      }
+        "digest": "3c5c9cee480e68ed86e7c7c8111867d81dda704f4aa28c69a3533344f38244cf"
+      },
+      "uri": "checking-spendingAndMinting_purpose_isolation.json"
+    },
+    "spendingOnly_accepts_some_context": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "49e2302ddce9c67b4eeaed453ea678b8c910f11d229bf72fcb5a3b7b34e4fbbe"
+      },
+      "uri": "checking-spendingOnly_accepts_some_context.json"
+    },
+    "spendingOnly_purpose_isolation": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "49e2302ddce9c67b4eeaed453ea678b8c910f11d229bf72fcb5a3b7b34e4fbbe"
+      },
+      "uri": "checking-spendingOnly_purpose_isolation.json"
     }
   },
   "definitions": {
@@ -116,8 +123,8 @@
       }
     },
     {
-      "checkingContext": "spending_accepted",
-      "id": "spending_accepted",
+      "checkingContext": "spendingOnly_accepts_some_context",
+      "id": "spendingOnly_accepts_some_context",
       "scope": {
         "validators": [
           "spendingOnly"
@@ -126,14 +133,14 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∀ (ctx : ScriptContext),\n      (match ctx.scriptContextScriptInfo with | .SpendingScript _ _ => True | _ => False) →\n      isSuccessful (spendingOnly (toLedgerData ctx))"
+          "source": "∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («spendingOnly»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
-        "text": "The spending branch terminates successfully for every typed spending context."
+        "text": "The compiled script terminates successfully for at least one typed script context."
       }
     },
     {
-      "checkingContext": "minting_accepted",
-      "id": "minting_accepted",
+      "checkingContext": "spendingAndMinting_accepts_some_context",
+      "id": "spendingAndMinting_accepts_some_context",
       "scope": {
         "validators": [
           "spendingAndMinting"
@@ -142,9 +149,25 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∀ (ctx : ScriptContext),\n      (match ctx.scriptContextScriptInfo with | .MintingScript _ => True | _ => False) →\n      isSuccessful (spendingAndMinting (toLedgerData ctx))"
+          "source": "∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («spendingAndMinting»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
-        "text": "The multi-purpose script also terminates successfully for every typed minting context."
+        "text": "The compiled script terminates successfully for at least one typed script context."
+      }
+    },
+    {
+      "checkingContext": "parameterizedSpending_accepts_some_context",
+      "id": "parameterizedSpending_accepts_some_context",
+      "scope": {
+        "validators": [
+          "parameterizedSpending"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "Exists (fun parameter0 =>\n∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («parameterizedSpending» parameter0 (CardanoLedgerApi.IsData.Class.toLedgerData ctx)))"
+        },
+        "text": "The compiled script terminates successfully for at least one typed script context."
       }
     }
   ]

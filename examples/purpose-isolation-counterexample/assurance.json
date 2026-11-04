@@ -8,12 +8,19 @@
     "uri": "plutus.json"
   },
   "checkingContexts": {
-    "uncheckedPurpose_purpose_isolation": {
-      "uri": "checking-uncheckedPurpose_purpose_isolation.json",
+    "uncheckedPurpose_accepts_some_context": {
       "hash": {
         "alg": "sha256",
-        "digest": "e895888415870d897e15270ef289404608cdb594b51764f95adb38667bf6034e"
-      }
+        "digest": "67d7ba603d411462f641a93f952503620ad7498e758f8c95007e9c640444aa9d"
+      },
+      "uri": "checking-uncheckedPurpose_accepts_some_context.json"
+    },
+    "uncheckedPurpose_purpose_isolation": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "67d7ba603d411462f641a93f952503620ad7498e758f8c95007e9c640444aa9d"
+      },
+      "uri": "checking-uncheckedPurpose_purpose_isolation.json"
     }
   },
   "definitions": {
@@ -53,6 +60,22 @@
           "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («uncheckedPurpose»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
         "text": "The compiled script rejects every purpose outside {spend}."
+      }
+    },
+    {
+      "checkingContext": "uncheckedPurpose_accepts_some_context",
+      "id": "uncheckedPurpose_accepts_some_context",
+      "scope": {
+        "validators": [
+          "uncheckedPurpose"
+        ]
+      },
+      "statement": {
+        "formal": {
+          "language": "ual",
+          "source": "∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («uncheckedPurpose»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+        },
+        "text": "The compiled script terminates successfully for at least one typed script context."
       }
     }
   ]

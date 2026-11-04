@@ -98,9 +98,9 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     discard <| IO.Process.run { cmd := "chmod", args := #["755", path.toString] }
   let mut reports : Array Json := #[]
   for (name, code, count) in [("game", 0, 3), ("parameters", 0, 6), ("recursive", 0, 4),
-      ("auction", 0, 31), ("purpose-isolation", 0, 5),
+      ("auction", 0, 31), ("purpose-isolation", 0, 6),
       ("helper-counterexample", 1, 1), ("auction-counterexample", 1, 1),
-      ("purpose-isolation-counterexample", 1, 1)] do
+      ("purpose-isolation-counterexample", 1, 2)] do
     let report ← invoke cli (examples / name / "plutus.json") (examples / name / "assurance.json") output true code
     let results ← array (← field report "results")
     ensure (results.size == count) "missing property outcomes"
@@ -110,6 +110,9 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     if code == 0 then
       ensure (results.all fun r => optText r "outcome" == some "verified") "true claim not verified"
     else
+      if name == "purpose-isolation-counterexample" then
+        ensure (optText results[1]! "outcome" == some "verified")
+          "independent acceptance claim did not verify"
       let cex ← field results[0]! "counterexample"
       let model ← field cex "model"
       ensure (!(← array (← field model "bindings")).isEmpty) "typed witness missing"
@@ -161,7 +164,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     reports := reports.push report
   finally IO.FS.writeFile readme original
   writeJson (output / "summary.json") (.arr reports)
-  IO.println "49 true properties, 3 typed/replayed CEX, strict replay and failure cases passed with native Lean."
+  IO.println "51 true properties, 3 typed/replayed CEX, strict replay and failure cases passed with native Lean."
 
 unsafe def main (args : List String) : IO UInt32 := do
   try

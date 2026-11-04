@@ -1,28 +1,28 @@
 {
-  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/checking-context.json",
-  "environment": {
-    "uri": "environment.json",
-    "hash": {
-      "alg": "sha256",
-      "digest": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
-    }
-  },
-  "execution": {
-    "acceptance": "evaluation",
-    "budget": {
-      "kind": "cek-steps",
-      "steps": 1000
+    "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/checking-context.json",
+    "environment": {
+        "hash": {
+            "alg": "sha256",
+            "digest": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
+        },
+        "uri": "environment.json"
     },
-    "semanticsVariant": "E"
-  },
-  "profile": "https://cips.cardano.org/cips/cipXXXX/profiles/uplc-step-check/v1",
-  "targets": [
-    {
-      "parameters": {
-        "mode": "universal"
-      },
-      "purpose": "spend",
-      "validator": "uncheckedPurpose"
-    }
-  ]
+    "execution": {
+        "acceptance": "evaluation",
+        "budget": {
+            "kind": "cek-steps",
+            "steps": 1000
+        },
+        "semanticsVariant": "E"
+    },
+    "profile": "https://cips.cardano.org/cips/cipXXXX/profiles/uplc-step-check/v1",
+    "targets": [
+        {
+            "parameters": {
+                "mode": "universal"
+            },
+            "purpose": "spend",
+            "validator": "uncheckedPurpose"
+        }
+    ]
 }

@@ -36,6 +36,20 @@ test('locates the generated id of a purpose-isolation template at its scope', ()
   assert.equal(source.slice(block.idStart.character, block.idEnd.character), 'uncheckedPurpose');
 });
 
+test('locates separate generated isolation and acceptance properties', () => {
+  const source = [
+    '{-@ PROPERTY [scope: spendingOnly] [template: purpose-isolation spending] @-}',
+    '{-@ PROPERTY [scope: spendingOnly] [template: accepts-some-context] @-}'
+  ].join('\n');
+  const blocks = propertyBlocks(source);
+  assert.deepEqual(blocks.map((block) => block.id), [
+    'spendingOnly_purpose_isolation',
+    'spendingOnly_accepts_some_context'
+  ]);
+  assert.equal(blocks[1].idStart.line, 1);
+  assert.equal(source.split('\n')[1].slice(blocks[1].idStart.character, blocks[1].idEnd.character), 'spendingOnly');
+});
+
 test('summarizes fresh verified evidence', () => {
   assert.deepEqual(evidenceStatus({ evidence: [{ outcome: 'verified', method: 'smt-check', date: '2026-10-07' }] }), {
     outcome: 'verified',

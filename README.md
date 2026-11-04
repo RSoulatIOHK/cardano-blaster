@@ -56,13 +56,13 @@ It exits with code 1 and reports a typed witness and compiled replay status.
 `examples/recursive` covers a recursive Tree schema. See
 [example provenance](examples/README.md).
 
-`examples/purpose-isolation` contains five verified claims, including generated
-properties that require a V3 script to reject every purpose outside those named
-in its UAL source template. It includes a native integer parameter and a script
+`examples/purpose-isolation` contains six verified claims: three generated
+purpose-isolation properties and three separate properties asserting that the
+compiled scripts accept at least one typed V3 context. It includes a native integer parameter and a script
 that intentionally accepts both spending and minting even though its blueprint
 lists a spending invocation. `examples/purpose-isolation-counterexample` has a
-compiled script that omits the purpose guard. Its generated claim is falsified;
-the CLI replays the wrong-purpose witness against UPLC and exports its typed
+compiled script that omits the purpose guard. Its isolation claim is falsified
+while its independent acceptance claim verifies. The CLI replays the wrong-purpose witness against UPLC and exports its typed
 `ScriptContext` to Haskell. The template parameter alone declares the allowed
 purposes; blueprint purpose metadata does not constrain the claim.
 
@@ -213,7 +213,7 @@ their exact pinned revisions. No adjacent repository clones are required.
 
 All CLI and test code is Lean 4. The integration tests run the relocated native
 bundle from another directory with failing stubs for Python, Lean, Lake, Git,
-GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 49 true properties, confirm three typed
+GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 51 true properties, confirm three typed
 counterexamples against compiled UPLC, recheck a bound context without refreshing,
 export three Haskell counterexamples with bound file hashes, and exercise invalid
 input, unsupported claims, mismatched/incomplete source values and timeout behavior.

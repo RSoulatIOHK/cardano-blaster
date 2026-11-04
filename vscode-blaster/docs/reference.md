@@ -105,9 +105,11 @@ click **Check this property** above the annotation, or place the cursor in it
 and run **Blaster: Rerun This Property**. This generates the JSON, runs the
 native checker for that property, and attaches the result to that exact source
 file. The badge and CEX tooltip become stale if the source changes. A detached
-`FormalSpec.hs` works the same way. Template properties such as
-`[scope: uncheckedPurpose] [template: purpose-isolation spending]` are matched
-to their generated ID `uncheckedPurpose_purpose_isolation`.
+`FormalSpec.hs` works the same way. Template annotations for
+`[scope: uncheckedPurpose] [template: purpose-isolation spending]` and
+`[scope: uncheckedPurpose] [template: accepts-some-context]` are matched to
+their separate generated IDs, `uncheckedPurpose_purpose_isolation` and
+`uncheckedPurpose_accepts_some_context`.
 
 For the Plutus UAL examples, `scripts/generate-plutus-ual.js` is a ready
 generator that builds a Cabal executable from source, finds its binary, and

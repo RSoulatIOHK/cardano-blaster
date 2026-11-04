@@ -35,8 +35,9 @@ function propertyBlocks(text) {
     const named = tail.slice(cursor).match(/^\s+([A-Za-z_][A-Za-z0-9_'.-]*)/);
     const scope = parsed.find((option) => option.startsWith('scope:'))?.slice(6).trim();
     const template = parsed.find((option) => option.startsWith('template:'))?.slice(9).trim();
-    const generated = !named && template?.startsWith('purpose-isolation ') && scope && !scope.includes(' ')
-      ? `${scope}_purpose_isolation` : undefined;
+    const suffix = template?.startsWith('purpose-isolation ') ? '_purpose_isolation'
+      : template === 'accepts-some-context' ? '_accepts_some_context' : undefined;
+    const generated = !named && suffix && scope && !scope.includes(' ') ? `${scope}${suffix}` : undefined;
     const id = named?.[1] || generated;
     if (!id) return [];
     const idOffset = named
