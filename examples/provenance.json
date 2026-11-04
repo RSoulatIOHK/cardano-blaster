@@ -65,7 +65,7 @@
       },
       "templateSpecification": {
         "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
-        "rev": "05da40b20bddeeeb2fcc17283c26bd0ef4e35152",
+        "rev": "126288bedec69decb14f72a553a46a942f371bc2",
         "status": "proposed-source-extension"
       },
       "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
@@ -83,7 +83,7 @@
       },
       "templateSpecification": {
         "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
-        "rev": "05da40b20bddeeeb2fcc17283c26bd0ef4e35152",
+        "rev": "126288bedec69decb14f72a553a46a942f371bc2",
         "status": "proposed-source-extension"
       },
       "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
