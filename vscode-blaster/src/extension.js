@@ -99,9 +99,10 @@ function loadFiles(files, nativeFiles = [], announce = true) {
   refreshEditors();
   lenses.refresh();
   const verified = state.allProperties.filter((item) => item.outcome === 'verified').length;
-  const falsified = state.allProperties.filter((item) => item.outcome === 'falsified').length;
+  const witnessed = state.allProperties.filter((item) => item.expectationMet).length;
+  const falsified = state.allProperties.filter((item) => item.outcome === 'falsified' && !item.expectationMet).length;
   status.text = state.allProperties.length
-    ? `$(beaker) Blaster: ${verified} verified · ${falsified} falsified`
+    ? `$(beaker) Blaster: ${verified} verified · ${witnessed} witnessed · ${falsified} falsified`
     : `$(beaker) Blaster: ${nativeReports.length} report(s)`;
   status.tooltip = state.files.length || nativeFiles.length
     ? [...state.files, ...nativeFiles].join('\n')
@@ -195,11 +196,12 @@ function updateEditor(editor) {
       diagnostic.source = 'Blaster';
       diagnostic.code = 'stale-evidence';
       problems.push(diagnostic);
-    } else if (property.outcome === 'verified') {
+    } else if (property.outcome === 'verified' || property.expectationMet) {
       shown.push({
         range: idRangeOf(block),
         hoverMessage: property.notes || detail(property),
-        renderOptions: { after: { contentText: '  ✓ Blaster verified', color: new vscode.ThemeColor('testing.iconPassed') } }
+        renderOptions: { after: { contentText: property.expectationMet ? '  ✓ Acceptance witness' : '  ✓ Blaster verified',
+          color: new vscode.ThemeColor('testing.iconPassed') } }
       });
     } else {
       const model = counterexampleText(property);
@@ -258,7 +260,7 @@ class LensProvider {
       if (property) {
         title = freshness.stale
           ? '$(warning) Blaster evidence is stale — rerun'
-          : property.outcome === 'verified'
+          : property.outcome === 'verified' || property.expectationMet
             ? `$(pass) ${detail(property)}`
             : `$(error) ${detail(property)}`;
         command = freshness.stale ? 'blaster.runProperty' : 'blaster.openResult';
@@ -274,7 +276,7 @@ class LensProvider {
         }));
       if (property?.nativeReport && property.outcome === 'falsified' && property.haskellFile && !freshness.stale) {
         items.push(new vscode.CodeLens(idRangeOf(block), {
-          title: '$(file-code) Pretty-print Haskell CEX',
+          title: property.expectationMet ? '$(file-code) View acceptance witness' : '$(file-code) View counterexample',
           command: 'blaster.prettyCounterexample',
           arguments: [document.uri, block.id]
         }));
@@ -338,14 +340,19 @@ class HoverProvider {
       if (property.nativeReport && property.outcome === 'falsified' && property.haskellFile) {
         const commandArgs = encodeURIComponent(JSON.stringify([document.uri.fsPath, block.id]));
         markdown.isTrusted = { enabledCommands: ['blaster.prettyCounterexample'] };
-        markdown.appendMarkdown(`\n[Open formatted CEX in editor](command:blaster.prettyCounterexample?${commandArgs})\n`);
+        markdown.appendMarkdown(`\n[Open formatted ${property.expectationMet ? 'witness' : 'CEX'} in editor](command:blaster.prettyCounterexample?${commandArgs})\n`);
         try {
           const choice = nativeChoiceForProperty(document, block.id, property);
           const rendered = await decodeCounterexample(choice);
-          markdown.appendMarkdown('\n**Decoded Haskell counterexample**\n');
+          markdown.appendMarkdown(property.expectationMet ? '\n**Decoded Haskell acceptance witness**\n' : '\n**Decoded Haskell counterexample**\n');
           markdown.appendCodeblock(rendered.value, 'haskell');
         } catch (error) {
           markdown.appendText(`\nHaskell decoding unavailable: ${error.message}`);
+          const replayed = Object.entries(property.replayedData || {});
+          if (replayed.length) {
+            markdown.appendMarkdown('\n**Exact Data replayed against UPLC**\n');
+            markdown.appendCodeblock(replayed.map(([name, value]) => `${name}Data = ${value}`).join('\n'), 'haskell');
+          }
         }
       }
       if (property.haskell) markdown.appendCodeblock(property.haskell, 'haskell');
@@ -510,7 +517,12 @@ async function runNativeCheck() {
     } else if (event.exitCode === 1) {
       vscode.window.showInformationMessage('Blaster falsified a property; no typed Haskell counterexample was exported.');
     } else if (event.exitCode === 0) {
-      vscode.window.showInformationMessage('All selected properties were verified.');
+      const witnessed = loadNativeReports(newReports).reports
+        .flatMap((report) => report.results)
+        .filter((result) => result.expectationMet).length;
+      vscode.window.showInformationMessage(witnessed
+        ? `Blaster confirmed ${witnessed} acceptance witness${witnessed === 1 ? '' : 'es'}; all other selected properties were verified.`
+        : 'All selected properties were verified.');
     } else if (event.exitCode !== 1) {
       vscode.window.showErrorMessage(`Cardano Blaster exited with code ${event.exitCode}. See the task terminal.`);
     }
@@ -547,8 +559,9 @@ async function runNativeProperty(project, document, id) {
       } catch (error) {
         outputChannel.appendLine(`Haskell decoder: ${error.message}`);
       }
-      vscode.window.showInformationMessage(
-        `${id}: falsified; compiled replay ${result.replay}. Hover over the property to see the decoded CEX.`);
+      vscode.window.showInformationMessage(result.expectationMet
+        ? `${id}: acceptance witness confirmed by compiled replay. Hover over the property to inspect it.`
+        : `${id}: falsified; compiled replay ${result.replay}. Hover over the property to see the decoded CEX.`);
     } else {
       vscode.window.showInformationMessage(`${id}: ${result.outcome}${result.replay ? `; replay ${result.replay}` : ''}.`);
     }
@@ -612,10 +625,22 @@ function decodeCounterexample(choice) {
 
 async function showPrettyCounterexample(choice) {
   outputChannel.show(true);
-  const rendered = await vscode.window.withProgress({
-    location: vscode.ProgressLocation.Notification,
-    title: `Blaster: decoding ${choice.property} with Plutus FromData`
-  }, () => decodeCounterexample(choice));
+  let rendered;
+  try {
+    rendered = await vscode.window.withProgress({
+      location: vscode.ProgressLocation.Notification,
+      title: `Blaster: decoding ${choice.property} with Plutus FromData`
+    }, () => decodeCounterexample(choice));
+  } catch (error) {
+    if (!fileState(choice.sourceFile, choice.sourceHash).matches) throw error;
+    rendered = { content: [
+      `-- Compiled UPLC replay confirmed this ${choice.expectationMet ? 'acceptance witness' : 'counterexample'}.`,
+      `-- Haskell FromData could not decode the exact Data: ${error.message}`,
+      '-- The source below preserves the exact replayed Data for inspection.',
+      '',
+      fs.readFileSync(choice.sourceFile, 'utf8')
+    ].join('\n') };
+  }
   const document = await vscode.workspace.openTextDocument({ language: 'haskell', content: rendered.content });
   await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
 }

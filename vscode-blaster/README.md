@@ -11,10 +11,13 @@ replay confirms the witness, you can inspect the counterexample in the editor.
   A detached FormalSpec.hs works as well as an annotation in Main.hs.
 - **See the verdict at its source.** Verified, falsified and stale results appear
   beside the corresponding property; stale evidence never counts as a current
-  result.
+  result. A generated `accepts-some-context` property shows an acceptance
+  witness only when its expected falsification is confirmed by compiled replay.
 - **Inspect a Haskell counterexample.** For supported encoded types, hover over
   a falsified property to see a value decoded with Plutus FromData, or open the
-  formatted value beside the specification. The decoded value is checked against
+  formatted value beside the specification. If Haskell rejects a Lean model's
+  raw `Data` fields, the hover and editor show the exact replayed `Data` instead.
+  A decoded value is checked against
   the Data used in the confirmed UPLC replay.
 - **Check existing bundles.** Open a plutus.json or assurance.json and run
   **Blaster: Check Blueprint and Assurance**. A native report can be opened
@@ -31,7 +34,9 @@ For the Plutus UAL examples, the first click can create the project manifest
 automatically from the Cabal executable. It also works when the example has no
 source JSON files: a bootstrap environment reference is generated in the local
 output directory, and cardano-blaster captures the actual Lean environment
-before verification. Other build layouts can provide a small
+before verification. The checker selects Ledger imports from the generated
+blueprint's Plutus version, so no profile needs to be guessed from Haskell
+source. Other build layouts can provide a small
 cardano-blaster.project.json with their generator command.
 
 ## Requirements and scope

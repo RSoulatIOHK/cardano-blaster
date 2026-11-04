@@ -56,15 +56,23 @@ It exits with code 1 and reports a typed witness and compiled replay status.
 `examples/recursive` covers a recursive Tree schema. See
 [example provenance](examples/README.md).
 
-`examples/purpose-isolation` contains six verified claims: three generated
-purpose-isolation properties and three separate properties asserting that the
-compiled scripts accept at least one typed V3 context. It includes a native integer parameter and a script
+`examples/purpose-isolation` contains three verified purpose-isolation claims
+and three acceptance witnesses. Each witness falsifies a generated universal
+rejection claim and is confirmed against the compiled UPLC. It includes a native integer parameter and a script
 that intentionally accepts both spending and minting even though its blueprint
 lists a spending invocation. `examples/purpose-isolation-counterexample` has a
 compiled script that omits the purpose guard. Its isolation claim is falsified
-while its independent acceptance claim verifies. The CLI replays the wrong-purpose witness against UPLC and exports its typed
-`ScriptContext` to Haskell. The template parameter alone declares the allowed
+while its independent acceptance claim yields a confirmed witness. The CLI replays the wrong-purpose witness against UPLC and exports the exact `Data` with a Haskell
+`ScriptContext` decoding attempt. The template parameter alone declares the allowed
 purposes; blueprint purpose metadata does not constrain the claim.
+
+The report keeps the raw `falsified` verdict for each generated negative claim,
+plus `expectedOutcome: "falsified"` and `expectationMet: true` when the compiled
+replay confirms it. The overall status is `witnessed` with exit code 0 when all
+selected claims are either verified or have confirmed expected witnesses.
+The Lean V1–V3 ledger models retain some transaction fields as raw `Data`;
+therefore a replayed witness is not guaranteed to decode with Haskell `FromData`.
+The exported source preserves the exact wire value even when decoding fails.
 
 `--refresh-environment` creates derived checking contexts for this installation
 and performs fresh verification. It preserves the original inputs, claims,
@@ -169,9 +177,13 @@ cardano-blaster check plutus.json assurance.json --json --output results
 
 `--property ID` is repeatable. `--json` prints only the final report on stdout.
 `--timeout SECONDS` bounds each verification worker and terminates its solver
-processes on expiry. `--profile auto` selects fixed Core/Cardano V3 imports from
-the digest-checked environment. `--profile cardano-v3-cex` can be selected for a
-producer placeholder that does not yet list its required modules. `--z3 PATH`
+processes on expiry. For a compiled Plutus blueprint, the checker reads
+`preamble.plutusVersion`, loads the Ledger codecs and checks that a generated
+`ScriptContext` property uses the matching version. A legacy project manifest's
+`core` profile cannot suppress those imports. For bundles without a Plutus
+version, `--profile auto` uses the digest-checked environment. The
+`cardano-v3-cex` import profile includes the V1 and V2 codecs as well; the
+report records the actual `plutusVersion` separately. `--z3 PATH`
 selects another solver and is recorded as an override.
 
 ## Build from source

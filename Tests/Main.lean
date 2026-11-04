@@ -22,6 +22,18 @@ private def unit : IO Unit := do
   let cex := obj [("model", obj [("witness", toJson "exact value")]), ("replay", obj [("status", toJson "unavailable")])]
   let (outcome, results) ← classifyResults #[put (result "falsified") "counterexample" cex] 1
   ensure (outcome == .falsified && results[0]!.getObjValD "counterexample" == cex) "preserve CEX and replay separately"
+  let expectation := obj [("id", toJson "p"), ("tags", toJson #["expect:falsified"])]
+  let confirmed := put (result "falsified") "counterexample" (obj [
+    ("replay", obj [("status", toJson "confirmed"), ("propertyHolds", toJson false)])])
+  let (witnessOutcome, marked) ← IO.ofExcept (reconcileExpectations #[expectation] #[confirmed] .falsified)
+  ensure (witnessOutcome == .witnessed && (marked[0]!.getObjValAs? Bool "expectationMet").toOption == some true)
+    "confirmed expected falsification should count as a witness"
+  let unconfirmed := put (result "falsified") "counterexample" (obj [
+    ("replay", obj [("status", toJson "not-reproduced"), ("propertyHolds", toJson true)])])
+  ensure ((← IO.ofExcept (reconcileExpectations #[expectation] #[unconfirmed] .falsified)).1 == .inconclusive)
+    "unreplayed solver model counted as a witness"
+  ensure ((← IO.ofExcept (reconcileExpectations #[expectation] #[result "verified"] .verified)).1 == .falsified)
+    "always-rejecting script counted as accepted"
   for report in [nativeReport #[result "verified", result "verified"],
       nativeReport #[put (result "verified") "property" (toJson "other")], nativeReport #[result "maybe"],
       put (nativeReport #[result "verified"]) "blueprintSha256" (toJson "wrong")] do
@@ -107,12 +119,21 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     let runtime ← field report "runtime"
     ensure ((runtime.getObjValAs? Bool "pinned").toOption == some true) "unbound runtime"
     ensure (optText runtime "distribution" == some "native-bundle") "test must use the standalone bundle"
+    ensure (optText report "plutusVersion" == some (if name == "game" || name == "parameters" then "v2" else "v3"))
+      "blueprint version not recorded"
     if code == 0 then
-      ensure (results.all fun r => optText r "outcome" == some "verified") "true claim not verified"
+      if name == "purpose-isolation" then
+        ensure (optText report "status" == some "witnessed" &&
+          (results.filter fun r => (r.getObjValAs? Bool "expectationMet").toOption == some true).size == 3 &&
+          (results.filter fun r => optText r "outcome" == some "verified").size == 3)
+          "purpose isolation and acceptance witness results are not independent"
+      else
+        ensure (results.all fun r => optText r "outcome" == some "verified") "true claim not verified"
     else
       if name == "purpose-isolation-counterexample" then
-        ensure (optText results[1]! "outcome" == some "verified")
-          "independent acceptance claim did not verify"
+        ensure (optText results[1]! "outcome" == some "falsified" &&
+          (results[1]!.getObjValAs? Bool "expectationMet").toOption == some true)
+          "independent acceptance witness was not confirmed"
       let cex ← field results[0]! "counterexample"
       let model ← field cex "model"
       ensure (!(← array (← field model "bindings")).isEmpty) "typed witness missing"
@@ -164,7 +185,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     reports := reports.push report
   finally IO.FS.writeFile readme original
   writeJson (output / "summary.json") (.arr reports)
-  IO.println "51 true properties, 3 typed/replayed CEX, strict replay and failure cases passed with native Lean."
+  IO.println "47 verified properties, 4 acceptance witnesses, 3 unexpected falsifications and strict replay checks passed with native Lean."
 
 unsafe def main (args : List String) : IO UInt32 := do
   try

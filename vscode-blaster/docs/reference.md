@@ -70,7 +70,6 @@ The manifest format is:
   "assurance": "assurance.json",
   "sources": ["Main.hs", "OnChain.hs", "FormalSpec.hs"],
   "refreshEnvironment": true,
-  "profile": "cardano-v3-cex",
   "generator": {
     "command": "./generate-assurance",
     "args": ["${sourceFile}"],
@@ -96,9 +95,10 @@ were regenerated and contain the selected property. Put every contract and
 specification source relevant to the output in `sources`; changes to those
 files invalidate the displayed evidence. The manifest and selected `.hs` file
 are always tracked even when omitted from `sources`.
-Set `profile` when the generator starts with an illustrative environment that
-has no `modules` map: use `cardano-v3-cex` for V3 scripts with typed CEX export,
-`cardano-v3` for V3 verification only, or `core` for generic UPLC.
+For a compiled Plutus blueprint, the checker reads `preamble.plutusVersion`
+and loads the matching typed context support; `profile` is unnecessary. For a
+bundle without that version field, an optional `profile` can select `core`,
+`cardano-v3` or `cardano-v3-cex`.
 
 Open `FormalSpec.hs` or a `Main.hs` containing a UAL `PROPERTY` annotation and
 click **Check this property** above the annotation, or place the cursor in it
@@ -117,7 +117,9 @@ runs it in the example directory. Set the manifest's `generator.command` to
 `node` and `args` to the script path, Cabal target, `${projectDir}`, an
 optional GHC path, and an optional output directory for generated JSON. The
 example directory may contain an `environment.json` reference; otherwise the
-generator derives one from the manifest profile in its output directory.
+generator creates a Core-only bootstrap reference in its output
+directory. The checker captures the real environment after reading the
+generated blueprint.
 Building Plutus can take time on a cold Cabal cache; a cached executable is
 never substituted for a failed build.
 

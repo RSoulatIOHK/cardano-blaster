@@ -11,6 +11,7 @@ const {
   mergeResults,
   propertyBlocks,
   propertyForSource,
+  readResult,
   sha256File,
   sourceState
 } = require('../src/results');
@@ -60,6 +61,21 @@ test('summarizes fresh verified evidence', () => {
     scriptHash: undefined
   });
   assert.equal(evidenceStatus({}).outcome, 'unchecked');
+});
+
+test('shows a replayed falsification as an acceptance witness', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'blaster-witness-'));
+  const source = path.join(root, 'Main.hs');
+  const file = path.join(root, 'property-result.json');
+  fs.writeFileSync(source, '{-@ PROPERTY [scope: validator] [template: accepts-some-context] @-}\n');
+  fs.writeFileSync(file, JSON.stringify({
+    property: 'validator_accepts_some_context', outcome: 'falsified',
+    expectedOutcome: 'falsified', expectationMet: true,
+    source, sourceSha256: sha256File(source)
+  }));
+  const property = readResult(file).properties.get('validator_accepts_some_context');
+  assert.equal(property.expectationMet, true);
+  assert.equal(property.label, 'Acceptance witness confirmed by compiled replay');
 });
 
 test('loads result trees and detects modified source', () => {

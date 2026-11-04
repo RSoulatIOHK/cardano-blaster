@@ -42,7 +42,7 @@ fs.writeFileSync(path.join(run, 'report.json'), JSON.stringify({
   format:'cardano-blaster-check-v1', results:[{property:'wrong_bid',outcome:'falsified',
   counterexample:{replay:{status:'confirmed'},source:{status:'exported',
   file:{uri:'counterexamples/Counterexample0.hs',hash:{alg:'sha256',digest}},
-  inputs:[{name:'ctx',sourceType:'V3.ScriptContext'}]}}}]
+  inputs:[{name:'ctx',sourceType:'V3.ScriptContext',dataExpression:'V3.Constr 0 []'}]}}}]
 }));
 process.exit(1);
 `);
@@ -67,6 +67,7 @@ process.exit(1);
   assert.equal(property.outcome, 'falsified');
   assert.equal(property.counterexample.ctx, 'V3.ScriptContext');
   assert.equal(property.counterexampleTypes.ctx, 'V3.ScriptContext');
+  assert.equal(property.replayedData.ctx, 'V3.Constr 0 []');
   assert.equal(sourceState(source, loaded.sourceHashes, undefined, property).stale, false);
   const manifest = fs.readFileSync(project.file, 'utf8');
   fs.appendFileSync(project.file, ' ');
@@ -173,7 +174,7 @@ executable example-ual-auction
   assert.equal(findProject(source), undefined);
   const inferred = inferPlutusProject(source);
   assert.equal(inferred.directory, exampleDir);
-  assert.equal(inferred.config.profile, 'cardano-v3-cex');
+  assert.equal(inferred.config.profile, undefined);
   assert.equal(inferred.config.generator.args[1], 'docusaurus-examples:exe:example-ual-auction');
   assert.ok(inferred.config.sources.includes('../../../AuctionValidator.hs'));
   assert.ok(inferred.config.sources.includes('FormalSpec.hs'));
@@ -181,12 +182,12 @@ executable example-ual-auction
   assert.ok(!inferred.config.sources.includes('environment.json'));
   const project = createInferredProject(source);
   assert.equal(project.directory, exampleDir);
-  assert.equal(project.profile, 'cardano-v3-cex');
+  assert.equal(project.profile, undefined);
   assert.equal(createInferredProject(source).file, project.file);
   assert.equal(findProject(source).file, project.file);
   assert.equal(inferPlutusProject(path.join(packageDir, 'Other.hs')), undefined);
   const producer = path.join(root, 'producer');
-  fs.writeFileSync(producer, `#!${process.execPath}\nconst fs=require('node:fs');if(!JSON.parse(fs.readFileSync('environment.json')).requiredImports.includes('CardanoLedgerApi.V3'))process.exit(5);fs.writeFileSync('plutus.json','{}');fs.writeFileSync('assurance.json','{}');`);
+  fs.writeFileSync(producer, `#!${process.execPath}\nconst fs=require('node:fs');if(!JSON.parse(fs.readFileSync('environment.json')).requiredImports.includes('PlutusCore.UPLC.BlueprintEncoding.Assurance'))process.exit(5);fs.writeFileSync('plutus.json','{}');fs.writeFileSync('assurance.json','{}');`);
   fs.chmodSync(producer, 0o755);
   const cabal = path.join(root, 'fake-cabal');
   fs.writeFileSync(cabal, `#!${process.execPath}\nif(process.argv[2]==='list-bin')console.log('${producer}');else if(process.argv[2]!=='build')process.exit(3);`);

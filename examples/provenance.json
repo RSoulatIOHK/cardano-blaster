@@ -61,37 +61,37 @@
     "purpose-isolation": {
       "producer": {
         "url": "https://github.com/RSoulatIOHK/plutus",
-        "rev": "b83321c9e38df81c686716f88b63500a455f49b0"
+        "rev": "83fb735953c2a9634e43d5ac5f19dd4368cf7c71"
       },
       "templateSpecification": {
         "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
-        "rev": "126288bedec69decb14f72a553a46a942f371bc2",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
         "status": "proposed-source-extension"
       },
       "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
-      "blueprintSha256": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14",
-      "assuranceSha256": "55b6f4e24534bbef240ba19a4a3faa127814cb0fd66ff9a56ebd8bab60741fd5",
+      "blueprintSha256": "834df19f9cf0a206c46fb0474aa3eacc27933634128624607ffdfd77c56383ea",
+      "assuranceSha256": "c6100869c3a5fe6d7e77a2a2c5a8e654663deb30afaaa961e39d6e0315bc040b",
       "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
       "properties": 6,
-      "originalAssuranceSha256": "16e6f1ae868033b1b286a4e6d3f5e52042ac9f28cb65f138a35e098864f29e56",
+      "originalAssuranceSha256": "040201d4a84fdc8d3c70481ef6fec54ef5748e8be19869905d1eaec0b929742d",
       "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
     },
     "purpose-isolation-counterexample": {
       "producer": {
         "url": "https://github.com/RSoulatIOHK/plutus",
-        "rev": "b83321c9e38df81c686716f88b63500a455f49b0"
+        "rev": "83fb735953c2a9634e43d5ac5f19dd4368cf7c71"
       },
       "templateSpecification": {
         "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
-        "rev": "126288bedec69decb14f72a553a46a942f371bc2",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
         "status": "proposed-source-extension"
       },
       "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
-      "blueprintSha256": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14",
-      "assuranceSha256": "c288dcc2aeb59b04b989322b14c5532fa6309302a638fecd584ff9d5763f62f4",
+      "blueprintSha256": "834df19f9cf0a206c46fb0474aa3eacc27933634128624607ffdfd77c56383ea",
+      "assuranceSha256": "b5b8ff09fe69d72b68aa0ae5b100b2e546e4d8189605b82cc31eef0d01a9c084",
       "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
       "properties": 2,
-      "originalAssuranceSha256": "16e6f1ae868033b1b286a4e6d3f5e52042ac9f28cb65f138a35e098864f29e56",
+      "originalAssuranceSha256": "040201d4a84fdc8d3c70481ef6fec54ef5748e8be19869905d1eaec0b929742d",
       "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
     }
   },
@@ -99,5 +99,5 @@
     "helper-counterexample": "Reverse the outbids_exact comparison from < to > in the claim; preserve compiled UPLC.",
     "auction-counterexample": "Raise the first_bid_exact minimum from 100 to 101 in the claim; preserve compiled UPLC."
   },
-  "packaging": "Compact environment JSON; select generated claims and their checking contexts for the purpose-isolation bundles; remove unused checking contexts from other counterexample bundles; recompute affected SHA-256 references. Compiled code and selected claims unchanged."
+  "packaging": "Select the generated claims and their checking contexts for the purpose-isolation bundles; retain their exact blueprint and compiled code; update assurance digests after the replay-backed acceptance template change."
 }

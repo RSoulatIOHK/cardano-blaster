@@ -102,12 +102,6 @@ function inferPlutusProject(source) {
   const sources = [...new Set([...projectHaskellFiles, ...moduleFiles,
     best.cabalFile, ...(fs.existsSync(environmentFile) ? [environmentFile] : [])])]
     .map((file) => path.relative(projectDir, file)).sort();
-  const requiredImports = fs.existsSync(environmentFile)
-    ? JSON.parse(fs.readFileSync(environmentFile, 'utf8')).requiredImports || [] : [];
-  const hasCardanoTypes = projectHaskellFiles.some((file) =>
-    /\b(?:ScriptContext|TxInfo|ScriptInfo)\b|\bCardanoLedgerApi\.V3\b/.test(fs.readFileSync(file, 'utf8')));
-  const profile = requiredImports.includes('CardanoLedgerApi.V3') || hasCardanoTypes
-    ? 'cardano-v3-cex' : 'core';
   return {
     directory: projectDir,
     config: {
@@ -115,7 +109,6 @@ function inferPlutusProject(source) {
       blueprint: '.local/cardano-blaster/plutus.json',
       assurance: '.local/cardano-blaster/assurance.json',
       sources,
-      profile,
       refreshEnvironment: true,
       generator: {
         command: 'node',
@@ -157,7 +150,7 @@ function readProject(file) {
       typeof config.generator.command !== 'string' ||
       !Array.isArray(config.generator.args) ||
       !config.generator.args.every((arg) => typeof arg === 'string') ||
-      (config.profile !== undefined && !['core', 'cardano-v3', 'cardano-v3-cex'].includes(config.profile)) ||
+      (config.profile !== undefined && !['auto', 'core', 'cardano-v3', 'cardano-v3-cex'].includes(config.profile)) ||
       (config.sources !== undefined && (!Array.isArray(config.sources) ||
         !config.sources.every((entry) => typeof entry === 'string')))) {
     throw new Error(`Invalid ${NAME}`);
@@ -287,6 +280,8 @@ async function runFocused(project, source, property, executable, outputRoot, onO
   const sidecar = {
     property,
     outcome: result.outcome,
+    expectedOutcome: result.expectedOutcome,
+    expectationMet: result.expectationMet,
     method: 'Blaster SMT and compiled UPLC replay',
     date: new Date().toISOString(),
     source,
@@ -299,6 +294,9 @@ async function runFocused(project, source, property, executable, outputRoot, onO
       [input.name, input.sourceType || input.expression])),
     counterexampleTypes: Object.fromEntries(result.inputs.filter((input) => input.sourceType)
       .map((input) => [input.name, input.sourceType])),
+    replayedData: Object.fromEntries(result.inputs
+      .filter((input) => typeof input.name === 'string' && typeof input.dataExpression === 'string')
+      .map((input) => [input.name, input.dataExpression])),
     structuredCounterexample: { replay: { status: result.replay } },
     log: path.join(path.dirname(report.file), 'verification.log')
   };

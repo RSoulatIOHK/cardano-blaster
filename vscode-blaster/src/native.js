@@ -47,6 +47,8 @@ function readNativeReport(file) {
     return {
       property: result.property,
       outcome: result.outcome,
+      expectedOutcome: result.expectedOutcome,
+      expectationMet: result.expectationMet === true,
       replay: result.counterexample?.replay?.status,
       sourceStatus: source?.status,
       sourceReason: source?.reason,
@@ -57,6 +59,7 @@ function readNativeReport(file) {
   });
   return {
     file: path.resolve(file),
+    status: document.status,
     created: document.created,
     inputs: document.inputs || {},
     results

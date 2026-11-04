@@ -3,7 +3,7 @@
   "blueprint": {
     "hash": {
       "alg": "sha256",
-      "digest": "1625cbbf9c33c9d41745e1ee4759d92859fcae0877a7dfb901aa1de83b605e14"
+      "digest": "834df19f9cf0a206c46fb0474aa3eacc27933634128624607ffdfd77c56383ea"
     },
     "uri": "plutus.json"
   },
@@ -85,7 +85,7 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingOnly»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+          "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => False\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingOnly» (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
         "text": "The compiled script rejects every purpose outside {spend}."
       }
@@ -101,7 +101,7 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∀  (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => True\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingAndMinting»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+          "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  (match ctx.scriptContextScriptInfo with\n    | .SpendingScript _ _ => True\n    | .MintingScript _ => True\n    | .RewardingScript _ => False\n    | .CertifyingScript _ _ => False\n    | .VotingScript _ => False\n    | .ProposingScript _ _ => False) ∨\n  PlutusCore.UPLC.Utils.isUnsuccessful («spendingAndMinting» (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
         "text": "The compiled script rejects every purpose outside {spend, mint}."
       }
@@ -133,10 +133,13 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («spendingOnly»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+          "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  ¬ PlutusCore.UPLC.Utils.isSuccessful («spendingOnly» (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
-        "text": "The compiled script terminates successfully for at least one typed script context."
-      }
+        "text": "The compiled script succeeds for some typed script context."
+      },
+      "tags": [
+        "expect:falsified"
+      ]
     },
     {
       "checkingContext": "spendingAndMinting_accepts_some_context",
@@ -149,10 +152,13 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («spendingAndMinting»  (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
+          "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  ¬ PlutusCore.UPLC.Utils.isSuccessful («spendingAndMinting» (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
-        "text": "The compiled script terminates successfully for at least one typed script context."
-      }
+        "text": "The compiled script succeeds for some typed script context."
+      },
+      "tags": [
+        "expect:falsified"
+      ]
     },
     {
       "checkingContext": "parameterizedSpending_accepts_some_context",
@@ -165,10 +171,13 @@
       "statement": {
         "formal": {
           "language": "ual",
-          "source": "Exists (fun parameter0 =>\n∃ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  PlutusCore.UPLC.Utils.isSuccessful («parameterizedSpending» parameter0 (CardanoLedgerApi.IsData.Class.toLedgerData ctx)))"
+          "source": "∀ parameter0 (ctx : CardanoLedgerApi.V3.ScriptContext),\n  ¬ PlutusCore.UPLC.Utils.isSuccessful («parameterizedSpending» parameter0 (CardanoLedgerApi.IsData.Class.toLedgerData ctx))"
         },
-        "text": "The compiled script terminates successfully for at least one typed script context."
-      }
+        "text": "The compiled script succeeds for some typed script context."
+      },
+      "tags": [
+        "expect:falsified"
+      ]
     }
   ]
 }

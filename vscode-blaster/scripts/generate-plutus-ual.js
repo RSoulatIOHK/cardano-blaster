@@ -35,16 +35,9 @@ if (fs.existsSync(environment)) {
     process.stderr.write(`Missing ${environment} and ${manifest}\n`);
     process.exit(2);
   }
-  const profile = JSON.parse(fs.readFileSync(manifest, 'utf8')).profile;
-  const imports = {
-    core: ['PlutusCore.UPLC.BlueprintEncoding.Assurance'],
-    'cardano-v3': ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3'],
-    'cardano-v3-cex': ['PlutusCore.UPLC.BlueprintEncoding.Assurance', 'CardanoLedgerApi.V3']
-  }[profile];
-  if (!imports) {
-    process.stderr.write(`Cannot generate environment.json for profile ${profile}\n`);
-    process.exit(2);
-  }
+  // This is only a bootstrap reference. The native checker derives the Ledger
+  // imports from the generated blueprint's preamble.plutusVersion.
+  const imports = ['PlutusCore.UPLC.BlueprintEncoding.Assurance'];
   fs.writeFileSync(path.join(bundle, 'environment.json'), `${JSON.stringify({
     format: 'illustrative-unpinned-environment',
     requiredImports: imports,

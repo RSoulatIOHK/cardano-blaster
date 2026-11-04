@@ -78,12 +78,16 @@ function readResult(file) {
     properties.set(document.property, {
       id: document.property,
       outcome: document.outcome,
-      label: document.outcome === 'verified' ? 'Verified by Blaster' : `Blaster: ${document.outcome}`,
+      expectedOutcome: document.expectedOutcome,
+      expectationMet: document.expectationMet === true,
+      label: document.expectationMet === true ? 'Acceptance witness confirmed by compiled replay'
+        : document.outcome === 'verified' ? 'Verified by Blaster' : `Blaster: ${document.outcome}`,
       method: document.method,
       date: document.date,
       notes: document.reusedCompiledCode ? 'Reused compiled UPLC from a source-matched verified bundle.' : undefined,
       counterexample: document.counterexample || {},
       counterexampleTypes: document.counterexampleTypes || {},
+      replayedData: document.replayedData || {},
       replay: document.structuredCounterexample && document.structuredCounterexample.replay,
       haskell: document.haskell,
       nativeReport: document.nativeReport,

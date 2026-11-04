@@ -93,6 +93,8 @@ private structure Expression where
 
 private def sourceType (name : String) : Except String String :=
   match name with
+  | "PlutusLedgerApi.V1.ScriptContext" => pure "V1.ScriptContext"
+  | "PlutusLedgerApi.V2.ScriptContext" => pure "V2.ScriptContext"
   | "PlutusLedgerApi.V3.ScriptContext" => pure "V3.ScriptContext"
   | "PlutusLedgerApi.V3.TxInfo" => pure "V3.TxInfo"
   | "PlutusLedgerApi.V3.ScriptInfo" => pure "V3.ScriptInfo"
@@ -190,6 +192,7 @@ def prepare (result : Json) : Except String (String × Json) := do
     used := used.push name
     let mut sourceTy := Json.null
     let mut dataName := Json.null
+    let mut dataExpression := Json.null
     let mut value := ""
     if optText typed "kind" == some "encoded" then
       let ty ← sourceType (← str typed "type")
@@ -197,6 +200,7 @@ def prepare (result : Json) : Except String (String × Json) := do
       let rawName := identifier (name ++ "Data") s!"input{i}Data" used
       used := used.push rawName
       let raw ← plutusData wire
+      dataExpression := toJson raw
       value := s!"decodeData {rawName}"
       declarations := declarations.push s!"{rawName} :: V3.Data\n{rawName} = {raw}\n\n{name} :: {ty}\n{name} = {value}\n"
       encodedBindings := encodedBindings.push (typed, name, rawName)
@@ -207,7 +211,7 @@ def prepare (result : Json) : Except String (String × Json) := do
       declarations := declarations.push s!"{name} = {value}\n"
     inputs := inputs.push (obj [("name", toJson (← str binding "name")), ("identifier", toJson name),
       ("leanType", toJson (← str binding "leanType")), ("sourceType", sourceTy),
-      ("dataIdentifier", dataName), ("expression", toJson value)])
+      ("dataIdentifier", dataName), ("dataExpression", dataExpression), ("expression", toJson value)])
   let mut contexts : Array Json := #[]
   let mut seen : Array (Nat × Json) := #[]
   let calls ← arr replay "calls"
@@ -252,9 +256,12 @@ def prepare (result : Json) : Except String (String × Json) := do
   let body := String.intercalate "\n" declarations.toList
   let imports := "import Prelude\nimport qualified Prelude as P\n" ++
     (if needsBytes then "import qualified Data.ByteString as BS\n" else "") ++
-    (if needsLedger then "import qualified PlutusLedgerApi.V3 as V3\n" else "")
+    (if needsLedger then "import qualified PlutusLedgerApi.V1 as V1\n" ++
+      "import qualified PlutusLedgerApi.V2 as V2\n" ++
+      "import qualified PlutusLedgerApi.V3 as V3\n" else "")
   let decoder := if needsLedger then
-    "-- Decode the exact argument replayed against UPLC using Plinth's own FromData instance.\n" ++
+    "-- Attempt to decode the exact replayed argument using Plinth's FromData instance.\n" ++
+    "-- The Lean ledger model can contain raw Data fields that Haskell rejects.\n" ++
     "decodeData :: (V3.FromData a, V3.ToData a) => V3.Data -> a\n" ++
     "decodeData wire = case V3.fromData wire of\n" ++
     "  Just value | V3.toData value == wire -> value\n" ++
