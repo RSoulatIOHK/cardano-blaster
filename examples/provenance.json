@@ -10,6 +10,18 @@
     "version": "1.0.0"
   },
   "bundles": {
+    "aiken-total-rejection": {
+      "producer": {
+        "name": "Aiken",
+        "version": "v1.1.24+bacbeb3",
+        "source": "examples/aiken-total-rejection/source/validators/locked.ak"
+      },
+      "sourceBlueprintSha256": "7c53ff786436803a73c7e847165ba24e339641ae099d35f83f6a6310c532da33",
+      "blueprintSha256": "073d4242c37db979e3afad4368a59709991ffe9c8f0a41c39b95381193e63817",
+      "assuranceSha256": "87eea48f8822f0d7602f2860988091379527e9ab51102fbe698c48067ce29586",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 1
+    },
     "auction": {
       "assuranceSha256": "4761a936d62d7b11760a51cca21858e6d599b0fb20ff8b2104b95553dbcd1104",
       "blueprintSha256": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8",
@@ -99,5 +111,5 @@
     "helper-counterexample": "Reverse the outbids_exact comparison from < to > in the claim; preserve compiled UPLC.",
     "auction-counterexample": "Raise the first_bid_exact minimum from 100 to 101 in the claim; preserve compiled UPLC."
   },
-  "packaging": "Select the generated claims and their checking contexts for the purpose-isolation bundles; retain their exact blueprint and compiled code; update assurance digests after the replay-backed acceptance template change."
+  "packaging": "Select the generated claims and their checking contexts for the purpose-isolation bundles; retain their exact blueprint and compiled code; update assurance digests after the replay-backed acceptance template change. For the separate Aiken fixture, retain the compiler's exact compiledCode and script hash while adding the compiled-interface metadata required by the checker."
 }

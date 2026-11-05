@@ -111,6 +111,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
   let mut reports : Array Json := #[]
   for (name, code, count) in [("game", 0, 3), ("parameters", 0, 6), ("recursive", 0, 4),
       ("auction", 0, 31), ("purpose-isolation", 0, 6),
+      ("aiken-total-rejection", 1, 1),
       ("helper-counterexample", 1, 1), ("auction-counterexample", 1, 1),
       ("purpose-isolation-counterexample", 1, 2)] do
     let report ← invoke cli (examples / name / "plutus.json") (examples / name / "assurance.json") output true code
@@ -130,37 +131,43 @@ private def integration (cli examples output : FilePath) : IO Unit := do
       else
         ensure (results.all fun r => optText r "outcome" == some "verified") "true claim not verified"
     else
-      if name == "purpose-isolation-counterexample" then
-        ensure (optText results[1]! "outcome" == some "falsified" &&
-          (results[1]!.getObjValAs? Bool "expectationMet").toOption == some true)
-          "independent acceptance witness was not confirmed"
-      let cex ← field results[0]! "counterexample"
-      let model ← field cex "model"
-      ensure (!(← array (← field model "bindings")).isEmpty) "typed witness missing"
-      let replay ← field cex "replay"
-      ensure (optText replay "status" == some "confirmed") "compiled replay not confirmed"
-      ensure ((replay.getObjValAs? Bool "propertyHolds").toOption == some false) "mutant holds"
-      ensure (!(← array (← field replay "calls")).isEmpty) "replay did not reach compiled UPLC"
-      let source ← field cex "source"
-      ensure (optText source "status" == some "exported") s!"Haskell source missing: {source.compress}"
-      ensure (optText source "compilation" == some "not-run") "export claims unperformed compilation"
-      let file ← field source "file"
-      let hs ← IO.FS.readFile ((← string (← field report "artifacts")) / (← text file "uri") : System.FilePath)
-      let contexts ← array (← field source "contexts")
-      if contexts.isEmpty then
-        ensure ((hs.splitOn "decodeData").length == 1) "scalar witness unexpectedly uses Haskell FromData"
+      if name == "aiken-total-rejection" then
+        ensure (optText results[0]! "outcome" == some "verified" &&
+          (results[0]!.getObjValAs? Bool "expectationMet").toOption == some false &&
+          results[0]!.getObjValD "counterexample" == Json.null)
+          "total rejection must defeat the generated acceptance expectation"
       else
-        ensure ((hs.splitOn "decodeData").length > 1) "encoded witness does not use Haskell FromData"
-      let folder : FilePath := ← text report "artifacts"
-      ensure ((← hashFile (folder / (← text file "uri"))) == (← text (← field file "hash") "digest")) "Haskell file digest differs"
-      if name == "auction-counterexample" then
-        ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
-        for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "ctxData :: V3.Data"] do
-          ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
-      if name == "purpose-isolation-counterexample" then
-        ensure (!(← array (← field source "contexts")).isEmpty) "typed purpose-isolation context missing"
-        for token in [":: V3.ScriptContext", ":: V3.Data", "decodeData"] do
-          ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
+        if name == "purpose-isolation-counterexample" then
+          ensure (optText results[1]! "outcome" == some "falsified" &&
+            (results[1]!.getObjValAs? Bool "expectationMet").toOption == some true)
+            "independent acceptance witness was not confirmed"
+        let cex ← field results[0]! "counterexample"
+        let model ← field cex "model"
+        ensure (!(← array (← field model "bindings")).isEmpty) "typed witness missing"
+        let replay ← field cex "replay"
+        ensure (optText replay "status" == some "confirmed") "compiled replay not confirmed"
+        ensure ((replay.getObjValAs? Bool "propertyHolds").toOption == some false) "mutant holds"
+        ensure (!(← array (← field replay "calls")).isEmpty) "replay did not reach compiled UPLC"
+        let source ← field cex "source"
+        ensure (optText source "status" == some "exported") s!"Haskell source missing: {source.compress}"
+        ensure (optText source "compilation" == some "not-run") "export claims unperformed compilation"
+        let file ← field source "file"
+        let hs ← IO.FS.readFile ((← string (← field report "artifacts")) / (← text file "uri") : System.FilePath)
+        let contexts ← array (← field source "contexts")
+        if contexts.isEmpty then
+          ensure ((hs.splitOn "decodeData").length == 1) "scalar witness unexpectedly uses Haskell FromData"
+        else
+          ensure ((hs.splitOn "decodeData").length > 1) "encoded witness does not use Haskell FromData"
+        let folder : FilePath := ← text report "artifacts"
+        ensure ((← hashFile (folder / (← text file "uri"))) == (← text (← field file "hash") "digest")) "Haskell file digest differs"
+        if name == "auction-counterexample" then
+          ensure (!(← array (← field source "contexts")).isEmpty) "typed ScriptContext source missing"
+          for token in ["proposed =", "locked =", "ctx :: V3.ScriptContext", "ctxData :: V3.Data"] do
+            ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
+        if name == "purpose-isolation-counterexample" then
+          ensure (!(← array (← field source "contexts")).isEmpty) "typed purpose-isolation context missing"
+          for token in [":: V3.ScriptContext", ":: V3.Data", "decodeData"] do
+            ensure ((hs.splitOn token).length > 1) s!"source witness lost {token}"
     reports := reports.push report
   let derived : FilePath := ← text reports[0]! "artifacts"
   reports := reports.push (← invoke cli (derived / "plutus.json") (derived / "assurance.json") output false 0)
@@ -185,7 +192,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
     reports := reports.push report
   finally IO.FS.writeFile readme original
   writeJson (output / "summary.json") (.arr reports)
-  IO.println "47 verified properties, 4 acceptance witnesses, 3 unexpected falsifications and strict replay checks passed with native Lean."
+  IO.println "48 verified properties, 4 acceptance witnesses, 3 unexpected falsifications and strict replay checks passed with native Lean."
 
 unsafe def main (args : List String) : IO UInt32 := do
   try

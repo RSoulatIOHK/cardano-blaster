@@ -1,0 +1,45 @@
+{
+  "preamble": {
+    "title": "blaster/total-rejection",
+    "description": "A validator with contradictory spending conditions",
+    "version": "0.1.0",
+    "plutusVersion": "v3",
+    "compiler": {
+      "name": "Aiken",
+      "version": "v1.1.24+bacbeb3"
+    },
+    "license": "Apache-2.0"
+  },
+  "validators": [
+    {
+      "title": "locked.locked.spend",
+      "datum": {
+        "title": "datum",
+        "schema": {
+          "$ref": "#/definitions/Int"
+        }
+      },
+      "redeemer": {
+        "title": "claim",
+        "schema": {
+          "$ref": "#/definitions/Int"
+        }
+      },
+      "compiledCode": "588901010029800aba2aba1aab9eaab9dab9a4888896600264646644b30013370e900118031baa0028994c004c02400660126014003375a60120089112cc004cdc3a400460146ea800a2942264b30013371000200513371200400314a08050dd6980618059baa002402430073754005164014600c600e002600c004600c00260066ea801a29344d9590011",
+      "hash": "19975409a9626506d7cb491cf3b263675989635816b0be513d71f930"
+    },
+    {
+      "title": "locked.locked.else",
+      "redeemer": {
+        "schema": {}
+      },
+      "compiledCode": "588901010029800aba2aba1aab9eaab9dab9a4888896600264646644b30013370e900118031baa0028994c004c02400660126014003375a60120089112cc004cdc3a400460146ea800a2942264b30013371000200513371200400314a08050dd6980618059baa002402430073754005164014600c600e002600c004600c00260066ea801a29344d9590011",
+      "hash": "19975409a9626506d7cb491cf3b263675989635816b0be513d71f930"
+    }
+  ],
+  "definitions": {
+    "Int": {
+      "dataType": "integer"
+    }
+  }
+}

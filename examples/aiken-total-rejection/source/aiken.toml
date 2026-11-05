@@ -1,0 +1,16 @@
+name = "blaster/total-rejection"
+version = "0.1.0"
+compiler = "v1.1.24"
+plutus = "v3"
+license = "Apache-2.0"
+description = "A validator with contradictory spending conditions"
+
+[repository]
+user = "RSoulatIOHK"
+project = "cardano-blaster"
+platform = "github"
+
+[[dependencies]]
+name = "aiken-lang/stdlib"
+version = "v3.1.0"
+source = "github"

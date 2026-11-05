@@ -1,6 +1,6 @@
 # Compiled Plinth bridge examples
 
-These are compiled bundles produced by the UAL blueprint generators in
+The Plinth bundles are produced by the UAL blueprint generators in
 [Plutus at f39439265c603d379bf5836596dccee8311b5189](https://github.com/IntersectMBO/plutus/tree/f39439265c603d379bf5836596dccee8311b5189/doc/docusaurus/static/code/Example/Ual).
 The purpose-isolation bundles were produced by the Plutus branch
 `feat/ual-property-templates`, using the proposed UAL source template extension
@@ -29,6 +29,14 @@ in `provenance.json`.
 | helper-counterexample | 1 | falsified, with confirmed compiled replay |
 | auction-counterexample | 1 | falsified, with confirmed compiled replay |
 | purpose-isolation-counterexample | 2 | isolation falsified with confirmed compiled replay and Haskell `ScriptContext` export; acceptance witnessed |
+| aiken-total-rejection | 1 | generated acceptance expectation fails: universal rejection claim verified |
+
+The [Aiken total-rejection fixture](aiken-total-rejection/README.md) is a
+separate cross-compiler example. Its Aiken-produced UPLC is preserved in an
+extended blueprint, and the Plinth acceptance-template formula is supplied as
+an explicit assurance property. It demonstrates detection of a compiled script
+that can never accept a valid context; it does not exercise Haskell annotation
+generation.
 
 The two counterexample bundles preserve the compiled Auction blueprint. Only a
 formal claim is deliberately changed: the helper comparison is reversed, or the
