@@ -1,0 +1,59 @@
+{
+    "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+    "blueprint": {
+        "hash": {
+            "alg": "sha256",
+            "digest": "19d5c054cd67f62c132949cf38d8b4f1ebd259bbdd6a2daaf4d37103a773e6b2"
+        },
+        "uri": "plutus.json"
+    },
+    "checkingContexts": {
+        "locked_accepts_some_context": {
+            "hash": {
+                "alg": "sha256",
+                "digest": "2e5a70f0b7255cf8d4e19655d8302ee14d3c781b3091f7f339eb2d6e6c484907"
+            },
+            "uri": "checking-locked_accepts_some_context.json"
+        }
+    },
+    "definitions": {
+        "BuiltinData": {}
+    },
+    "functions": {},
+    "languages": {
+        "ual": {
+            "name": "Universal Annotation Language",
+            "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+            "version": "1.0"
+        }
+    },
+    "preamble": {
+        "authors": [
+            "Plutus contributors"
+        ],
+        "created": "2026-11-05",
+        "title": "Plinth total rejection example",
+        "version": "1.0.0"
+    },
+    "properties": [
+        {
+            "checkingContext": "locked_accepts_some_context",
+            "id": "locked_accepts_some_context",
+            "scope": {
+                "validators": [
+                    "locked"
+                ]
+            },
+            "statement": {
+                "formal": {
+                    "language": "ual",
+                    "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  ¬ (CardanoLedgerApi.V3.Contexts.validScriptContext ctx = true ∧\n     PlutusCore.UPLC.Utils.isSuccessful («locked» (CardanoLedgerApi.IsData.Class.toLedgerData ctx)))"
+                },
+                "text": "The compiled script accepts at least one valid script context."
+            },
+            "tags": [
+                "expect:falsified"
+            ]
+        }
+    ]
+}

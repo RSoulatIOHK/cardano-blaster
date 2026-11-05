@@ -32,6 +32,40 @@ def classify (native : Json) (expected : Array String) (assuranceHash blueprintH
       results := results.push (obj [("property", toJson name), ("outcome", toJson "not-checked"), ("counterexample", .null)])
   return (outcome, results)
 
+private def expectsFalsification (property : Json) : Bool :=
+  ((property.getObjValAs? (Array String) "tags").toOption.getD #[]).contains "expect:falsified"
+
+/-- A generated negative claim succeeds only when its falsification is replayed
+against the compiled program. Preserve the raw logical verdict in each result. -/
+def reconcileExpectations (properties results : Array Json) (raw : Outcome) : Except String (Outcome × Array Json) := do
+  let mut annotated := results
+  let mut hasExpectation := false
+  let mut failed := false
+  let mut uncertain := false
+  for property in properties do
+    if expectsFalsification property then
+      hasExpectation := true
+      let id ← property.getObjValAs? String "id"
+      let some index := annotated.toList.findIdx? (fun result => optText result "property" == some id)
+        | throw s!"missing result for expected falsification: {id}"
+      let result := annotated[index]!
+      let verdict := optText result "outcome"
+      let replay := result.getObjValD "counterexample" |>.getObjValD "replay"
+      let confirmed := verdict == some "falsified" && optText replay "status" == some "confirmed" &&
+        (replay.getObjValAs? Bool "propertyHolds").toOption == some false
+      annotated := annotated.set! index <| put (put result "expectedOutcome" (toJson "falsified"))
+        "expectationMet" (toJson confirmed)
+      unless confirmed do
+        if verdict == some "verified" then failed := true else uncertain := true
+  if !hasExpectation then return (raw, annotated)
+  if raw == .error then return (.error, annotated)
+  if failed || raw == .falsified && results.any (fun r =>
+      optText r "outcome" == some "falsified" &&
+      !properties.any (fun p => optText p "id" == optText r "property" && expectsFalsification p)) then
+    return (.falsified, annotated)
+  if uncertain || raw == .inconclusive then return (.inconclusive, annotated)
+  return (.witnessed, annotated)
+
 private def chooseProfile (environments : Array Json) : IO Profile := do
   let mut chosen : Option Profile := none
   for env in environments do
@@ -42,6 +76,22 @@ private def chooseProfile (environments : Array Json) : IO Profile := do
       if old != profile then throw <| IO.userError "checking contexts need different import profiles; select properties separately"
     chosen := some profile
   return chosen.getD .core
+
+private def blueprintVersion (blueprint : Json) : IO (Option String) := do
+  let some preamble := (blueprint.getObjVal? "preamble").toOption | return none
+  let some version := optText preamble "plutusVersion" | return none
+  unless ["v1", "v2", "v3"].contains version do
+    throw <| IO.userError s!"unsupported blueprint Plutus version: {version}"
+  return some version
+
+private def propertyContextVersion (property : Json) : IO (Option String) := do
+  let formal := (property.getObjValD "statement").getObjValD "formal"
+  let some source := optText formal "source" | return none
+  let versions := #["v1", "v2", "v3"] |>.filter fun version =>
+    (source.splitOn s!"CardanoLedgerApi.{version.toUpper}.ScriptContext").length > 1
+  if versions.size > 1 then
+    throw <| IO.userError "property refers to ScriptContext types from different Plutus versions"
+  return versions[0]?
 
 private def progress (options : Options) (s : String) : IO Unit :=
   unless options.json do IO.eprintln s
@@ -57,10 +107,34 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
   let some source := String.fromUTF8? assuranceBytes | throw <| IO.userError "assurance is not UTF-8"
   let mut assurance ← parseJson source
   let some bpSource := String.fromUTF8? blueprintBytes | throw <| IO.userError "blueprint is not UTF-8"
-  discard <| parseJson bpSource
+  let blueprintJson ← parseJson bpSource
+  let version ← blueprintVersion blueprintJson
+  if let some version := version then record report "plutusVersion" (toJson version)
   let blueprintHash ← digestBytes blueprintBytes
   let assuranceHash ← digestBytes assuranceBytes
   let mut inputs : Inputs := #[(blueprint.toString, blueprintHash), (assurancePath.toString, assuranceHash)]
+  -- Source type provenance is optional and never changes the SMT/UPLC verdict.
+  -- A stale or malformed manifest is reported and ignored for source export.
+  let sourceTypesPath := options.sourceTypes.getD (blueprint.parent.getD "." / "source-types.json")
+  let mut sourceTypes : Option Json := none
+  if ← sourceTypesPath.pathExists then
+    try
+      let path ← IO.FS.realPath sourceTypesPath
+      let candidate ← readJson path
+      if optText candidate "format" == some "plinth-source-types-v1" &&
+          optText candidate "blueprintSha256" == some blueprintHash then
+        sourceTypes := some candidate
+        inputs := inputs.push (path.toString, ← hashFile path)
+        record report "sourceTypes" (obj [("status", toJson "accepted"), ("path", toJson path.toString)])
+      else
+        record report "sourceTypes" (obj [("status", toJson "ignored"),
+          ("reason", toJson "source type manifest does not match this blueprint")])
+    catch error =>
+      record report "sourceTypes" (obj [("status", toJson "ignored"),
+        ("reason", toJson error.toString)])
+  else if options.sourceTypes.isSome then
+    record report "sourceTypes" (obj [("status", toJson "ignored"),
+      ("reason", toJson "source type manifest does not exist")])
   record report "inputs" (obj (inputs.toList.map (fun (k, v) => (k, toJson v))))
   let blueprintRef ← field (← field assurance "blueprint") "hash"
   unless ["sha256", "sha-256"].contains (← text blueprintRef "alg").toLower &&
@@ -74,6 +148,10 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
     unless ids.contains id do throw <| IO.userError s!"unknown property: {id}"
   let properties := if options.properties.isEmpty then properties
     else properties.filter fun p => (optText p "id").any options.properties.contains
+  for property in properties do
+    if let some contextVersion ← propertyContextVersion property then
+      unless some contextVersion == version do
+        throw <| IO.userError s!"property {← text property "id"} uses a {contextVersion} ScriptContext, but the blueprint declares {version.getD "no Plutus version"}"
   let expected ← properties.mapM (text · "id")
   record report "selectedProperties" (toJson expected)
   let mut contexts : Array (String × FilePath × Json) := #[]
@@ -88,8 +166,13 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
         inputs := updated
         contexts := contexts.push (key, path, ctx)
         environments := environments.push env
-  let profile ← match options.profile with
-    | some p => pure p | none => chooseProfile environments
+  -- A compiled Plutus blueprint is authoritative for the Ledger imports.
+  -- Legacy project manifests may still request `core`; upgrade them so a
+  -- typed ScriptContext property works without manual profile maintenance.
+  let profile ← if version.isSome then pure Profile.cardanoV3Cex
+    else match options.profile with
+      | some p => pure p
+      | none => chooseProfile environments
   record report "profile" (toJson profile.label)
   let home ← Runtime.root
   record report "project" (toJson home.toString)
@@ -143,9 +226,11 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
   discard <| Runtime.validate home
   for (path, originalHash) in inputs do
     unless (← hashFile path) == originalHash do throw <| IO.userError s!"input artifact changed during verification: {path}"
-  let (outcome, results) ← IO.ofExcept (classify (← readJson nativePath) expected
+  let (rawOutcome, results) ← IO.ofExcept (classify (← readJson nativePath) expected
     (← hashFile checkedPath) (← hashFile checkedBlueprint) code)
-  record report "results" (.arr (← Counterexample.exportSources run results))
+  let (outcome, results) ← IO.ofExcept (reconcileExpectations properties
+    (← Counterexample.exportSources run results sourceTypes properties) rawOutcome)
+  record report "results" (.arr results)
   record report "checkedAssuranceSha256" (toJson (← hashFile checkedPath))
   record report "verifierReportSha256" (toJson (← hashFile nativePath))
   record report "verificationLogSha256" (toJson (← hashFile (run / "verification.log")))
@@ -164,7 +249,10 @@ private def createRun (output : FilePath) : IO FilePath := do
 
 def printResults (report : Json) : IO Unit := do
   for result in (← array (← field report "results")) do
-    IO.println s!"{← text result "outcome"}  {terminalText (← text result "property")}"
+    let verdict ← text result "outcome"
+    let shown := if (result.getObjValAs? Bool "expectationMet").toOption == some true
+      then "witnessed" else verdict
+    IO.println s!"{shown}  {terminalText (← text result "property")}"
     let cex := result.getObjValD "counterexample"
     let replay := cex.getObjValD "replay"
     if let some status := optText replay "status" then IO.println s!"  replay: {terminalText status}"
@@ -172,9 +260,12 @@ def printResults (report : Json) : IO Unit := do
     if optText source "status" == some "exported" then
       IO.println s!"  Haskell: {← text report "artifacts"}/{← text (← field source "file") "uri"}"
       for input in (← array (← field source "inputs")) do
-        IO.println s!"  {terminalText (← text input "name")} = {terminalText (← text input "expression")}"
+        if let some ty := optText input "sourceType" then
+          IO.println s!"  {terminalText (← text input "identifier")} :: {terminalText ty} (FromData decoding attempted on demand)"
+        else
+          IO.println s!"  {terminalText (← text input "name")} = {terminalText (← text input "expression")}"
       for context in (← array (← field source "contexts")) do
-        IO.println s!"  {terminalText (← text context "identifier")} :: {terminalText (← text context "sourceType")}"
+        IO.println s!"  {terminalText (← text context "identifier")} :: {terminalText (← text context "haskellType")}"
     else if let some reason := optText source "reason" then
       IO.println s!"  Haskell unavailable: {terminalText reason}"
     if optText source "status" != some "exported" then

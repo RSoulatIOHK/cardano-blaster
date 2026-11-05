@@ -44,6 +44,10 @@ cd cardano-blaster
 bin/cardano-blaster check examples/game/plutus.json examples/game/assurance.json --refresh-environment
 bin/cardano-blaster check examples/auction/plutus.json examples/auction/assurance.json --refresh-environment
 bin/cardano-blaster check examples/helper-counterexample/plutus.json examples/helper-counterexample/assurance.json --refresh-environment
+bin/cardano-blaster check examples/purpose-isolation/plutus.json examples/purpose-isolation/assurance.json --refresh-environment
+bin/cardano-blaster check examples/purpose-isolation-counterexample/plutus.json examples/purpose-isolation-counterexample/assurance.json --refresh-environment
+bin/cardano-blaster check examples/aiken-total-rejection/plutus.json examples/aiken-total-rejection/assurance.json --refresh-environment
+bin/cardano-blaster check examples/plinth-total-rejection/plutus.json examples/plinth-total-rejection/assurance.json --refresh-environment
 ```
 
 Game and Auction verify 3 and 31 properties. The helper counterexample deliberately
@@ -53,6 +57,38 @@ It exits with code 1 and reports a typed witness and compiled replay status.
 `examples/parameters` covers native/Data encoding and applied parameters;
 `examples/recursive` covers a recursive Tree schema. See
 [example provenance](examples/README.md).
+
+`examples/aiken-total-rejection` contains an Aiken validator with contradictory
+spending conditions. The compiled script is checked against the acceptance
+template's universal rejection claim. Blaster verifies that claim, so the
+expected acceptance witness is absent and the command exits with code 1. See
+the [Aiken example](examples/aiken-total-rejection/README.md) for the source
+and the exact scope of this result.
+
+`examples/plinth-total-rejection` applies the same acceptance template to a
+Plinth validator with contradictory script-purpose checks. Its
+blueprint and assurance are generated from the annotated Haskell source. The
+universal rejection claim verifies and the expected acceptance witness is
+absent, giving the same intentional exit code 1. See the
+[Plinth example](examples/plinth-total-rejection/README.md).
+
+`examples/purpose-isolation` contains three verified purpose-isolation claims
+and three acceptance witnesses. Each witness falsifies a generated universal
+rejection claim and is confirmed against the compiled UPLC. It includes a native integer parameter and a script
+that intentionally accepts both spending and minting even though its blueprint
+lists a spending invocation. `examples/purpose-isolation-counterexample` has a
+compiled script that omits the purpose guard. Its isolation claim is falsified
+while its independent acceptance claim yields a confirmed witness. The CLI replays the wrong-purpose witness against UPLC and exports the exact `Data` with a Haskell
+`ScriptContext` decoding attempt. The template parameter alone declares the allowed
+purposes; blueprint purpose metadata does not constrain the claim.
+
+The report keeps the raw `falsified` verdict for each generated negative claim,
+plus `expectedOutcome: "falsified"` and `expectationMet: true` when the compiled
+replay confirms it. The overall status is `witnessed` with exit code 0 when all
+selected claims are either verified or have confirmed expected witnesses.
+The Lean V1–V3 ledger models retain some transaction fields as raw `Data`;
+therefore a replayed witness is not guaranteed to decode with Haskell `FromData`.
+The exported source preserves the exact wire value even when decoding fails.
 
 `--refresh-environment` creates derived checking contexts for this installation
 and performs fresh verification. It preserves the original inputs, claims,
@@ -86,7 +122,8 @@ reconstruct a Lean proof or establish ledger acceptance or CPU/memory budgets.
 
 A falsified property with a confirmed compiled replay automatically exports a
 Haskell module under the run's `counterexamples/` directory. The terminal shows
-the source file and the original input names with their Haskell expressions:
+the source file and the original input names. For encoded ledger values it shows
+their Haskell types; the complete Data remains in the generated module and report:
 
 ```text
 falsified  first_bid_exact
@@ -98,34 +135,56 @@ falsified  first_bid_exact
   hi = (0 :: Integer)
 ```
 
-The module preserves valid input names (`proposed`, `locked`, etc.) and renders
-typed arguments as actual Haskell records, sums and newtypes. For example,
-`ctx :: V3.ScriptContext` contains `scriptContextTxInfo = V3.TxInfo { ... }`,
-with named fields such as `txInfoInputs` and `txInfoOutputs`. It does not wrap
-a serialized context in `decodeData`, or duplicate it as a raw Data literal.
+The module preserves valid input names (`proposed`, `locked`, etc.). For an
+encoded `ScriptContext`, it defines a `V3.Data` binding with the exact argument
+used in the confirmed UPLC replay, then a `V3.ScriptContext` binding using the
+ledger API's `fromData` instance. The generated decoder checks that `toData` of
+the decoded context equals the original wire value. A failed decode or changed
+round trip raises an explicit Haskell error; the raw Data remains available.
 Invalid or colliding Haskell identifiers receive a safe replacement or suffix;
 the original name remains in the JSON report.
 
-The ledger type graph is reflected from the actual Haskell definitions in
-`plutus-ledger-api-1.72.0.0`. Constructor tags come from its `ToData` instances,
-not declaration order or blueprint display titles. The graph is embedded in the
-Lean CLI; checking and source generation need no GHC or Python. Fields whose
-actual Haskell type is `BuiltinData` remain Data: without an explicit source type
-mapping, the tool cannot claim that a datum or redeemer is a particular contract
-type. Arbitrary user-defined Haskell type reconstruction is not yet supported.
+The CLI generates this source in Lean without GHC or Python. It knows the Haskell
+types of V3 `ScriptContext`, `TxInfo` and `ScriptInfo` arguments. A Plinth
+generator can also write `source-types.json` beside `plutus.json`, recording
+which contract-defined Haskell datum and redeemer types correspond to the
+blueprint definitions. The CLI accepts that manifest only when its
+`blueprintSha256` matches the exact blueprint it checks. It then emits source
+that extracts the Data from a replayed context and decodes it through the
+project's own `FromData` instance. Raw `BuiltinData` remains Data. The manifest
+does not change the proof or UPLC replay; a decode failure is reported by the
+generated Haskell module rather than hidden or treated as a verified result.
+The default is the `source-types.json` beside the blueprint; use
+`--source-types PATH` to select another manifest.
 
 Each exported context must match a replayed wire argument exactly. The complete
 wire value and confirmed UPLC replay remain in `verifier-report.json`; the
-generated `main` prints the typed values. Haskell compilation and codec round
-trips are separate developer validation, not an extra proof performed by `check`.
+generated `main` decodes and prints the typed values. The Haskell decode and
+round trip happen when that module runs, not during `check`.
+
+The [VS Code extension](vscode-blaster/README.md) can run a property directly
+from a Haskell project, show its verdict at the UAL annotation, and decode a
+confirmed counterexample with Plutus `FromData` directly in the property's
+tooltip or in a formatted Haskell editor view.
+It can also inspect a standalone `report.json`. New releases built with this
+extension include an installable VSIX; source-level checks additionally need that project's Plutus,
+Cabal, GHC and Node.js build environment. Standalone JSON checks use only the
+native CLI.
 
 To compile and run an exported module, use a GHC environment containing the
-Plutus project's `plutus-ledger-api` and `bytestring` packages:
+Plutus project's `plutus-ledger-api`, `plutus-tx` and `bytestring` packages.
+For contract-defined types, include the source directory that contains their
+Haskell module:
 
 ```sh
-ghc -package plutus-ledger-api -package plutus-tx -package bytestring /absolute/path/Counterexample0.hs -o replay-context
+ghc -package plutus-ledger-api -package plutus-tx -package bytestring \
+  -i/absolute/path/to/project/source -main-is Counterexample0.main \
+  /absolute/path/Counterexample0.hs -o replay-context
 ./replay-context
 ```
+
+The VS Code extension discovers source import paths from the project file and
+uses its Cabal environment to evaluate the generated module for inline display.
 
 `counterexample.source` in `report.json` records `status`, the Haskell file URI
 and SHA-256, input names/expressions, and the contexts' call targets and argument
@@ -135,7 +194,7 @@ is preserved and its digest is also recorded.
 
 `compilation: not-run` distinguishes source export from compiling or running the
 Haskell module. The CLI confirms execution through UPLC replay. Unknown source
-types, incomplete values, unfinished replay and mismatched contexts produce
+types, incomplete values, unfinished replay and mismatched wire arguments produce
 `source.status: unavailable` with a reason; the SMT verdict remains unchanged.
 Supported source values include integers, naturals, booleans, strings, bytes,
 unit, lists, pairs, options, Plutus Data and the three explicit V3 codecs above.
@@ -147,9 +206,13 @@ cardano-blaster check plutus.json assurance.json --json --output results
 
 `--property ID` is repeatable. `--json` prints only the final report on stdout.
 `--timeout SECONDS` bounds each verification worker and terminates its solver
-processes on expiry. `--profile auto` selects fixed Core/Cardano V3 imports from
-the digest-checked environment. `--profile cardano-v3-cex` can be selected for a
-producer placeholder that does not yet list its required modules. `--z3 PATH`
+processes on expiry. For a compiled Plutus blueprint, the checker reads
+`preamble.plutusVersion`, loads the Ledger codecs and checks that a generated
+`ScriptContext` property uses the matching version. A legacy project manifest's
+`core` profile cannot suppress those imports. For bundles without a Plutus
+version, `--profile auto` uses the digest-checked environment. The
+`cardano-v3-cex` import profile includes the V1 and V2 codecs as well; the
+report records the actual `plutusVersion` separately. `--z3 PATH`
 selects another solver and is recorded as an override.
 
 ## Build from source
@@ -191,9 +254,9 @@ their exact pinned revisions. No adjacent repository clones are required.
 
 All CLI and test code is Lean 4. The integration tests run the relocated native
 bundle from another directory with failing stubs for Python, Lean, Lake, Git,
-GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 44 true properties, confirm both typed
+GHC/Cabal, Nix and C/C++ compilers on `PATH`. They verify 51 true properties, confirm three typed
 counterexamples against compiled UPLC, recheck a bound context without refreshing,
-export both Haskell counterexamples with bound file hashes, and exercise invalid
+export three Haskell counterexamples with bound file hashes, and exercise invalid
 input, unsupported claims, mismatched/incomplete source values and timeout behavior.
 
 When updating dependencies, change the Lake requirements, manifest and runtime

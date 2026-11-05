@@ -1,0 +1,62 @@
+{
+  "$schema": "https://cips.cardano.org/cips/cipXXXX/schemas/assurance-v2.json",
+  "blueprint": {
+    "hash": {
+      "alg": "sha256",
+      "digest": "073d4242c37db979e3afad4368a59709991ffe9c8f0a41c39b95381193e63817"
+    },
+    "uri": "plutus.json"
+  },
+  "checkingContexts": {
+    "aikenLocked_accepts_some_context": {
+      "hash": {
+        "alg": "sha256",
+        "digest": "7d714004ca5da9329acb2c9e3d47ad348ada0ed93287a7242304f91ffe31383a"
+      },
+      "uri": "checking.json"
+    }
+  },
+  "definitions": {
+    "BuiltinData": {},
+    "Integer": {
+      "dataType": "integer"
+    }
+  },
+  "functions": {},
+  "languages": {
+    "ual": {
+      "name": "Universal Annotation Language",
+      "uri": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+      "version": "1.0"
+    }
+  },
+  "preamble": {
+    "authors": [
+      "Plutus contributors"
+    ],
+    "created": "2026-11-01",
+    "title": "Aiken total rejection check",
+    "version": "1.0.0"
+  },
+  "properties": [
+    {
+      "id": "aikenLocked_accepts_some_context",
+      "checkingContext": "aikenLocked_accepts_some_context",
+      "scope": {
+        "validators": [
+          "aikenLocked"
+        ]
+      },
+      "statement": {
+        "text": "The compiled Aiken spending validator accepts at least one valid script context.",
+        "formal": {
+          "language": "ual",
+          "source": "∀ (ctx : CardanoLedgerApi.V3.ScriptContext),\n  ¬ (CardanoLedgerApi.V3.Contexts.validScriptContext ctx = true ∧\n     PlutusCore.UPLC.Utils.isSuccessful («aikenLocked» (CardanoLedgerApi.IsData.Class.toLedgerData ctx)))"
+        }
+      },
+      "tags": [
+        "expect:falsified"
+      ]
+    }
+  ]
+}

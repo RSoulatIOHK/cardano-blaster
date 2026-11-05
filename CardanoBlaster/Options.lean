@@ -1,17 +1,18 @@
 import CardanoBlaster.Json
+import CardanoBlaster.Counterexample.Legacy
 
 namespace CardanoBlaster
 open Lean System
 
 inductive Outcome where
-  | verified | falsified | inconclusive | error
+  | verified | witnessed | falsified | inconclusive | error
   deriving BEq, Repr
 
 def Outcome.label : Outcome → String
-  | .verified => "verified" | .falsified => "falsified"
+  | .verified => "verified" | .witnessed => "witnessed" | .falsified => "falsified"
   | .inconclusive => "inconclusive" | .error => "error"
 def Outcome.exitCode : Outcome → UInt32
-  | .verified => 0 | .falsified => 1 | .inconclusive => 2 | .error => 3
+  | .verified => 0 | .witnessed => 0 | .falsified => 1 | .inconclusive => 2 | .error => 3
 
 inductive Profile where
   | core | cardanoV3 | cardanoV3Cex
@@ -26,7 +27,8 @@ def Profile.parse : String → Except String Profile
 def Profile.header (p : Profile) : String :=
   "import PlutusCore.UPLC.BlueprintEncoding.Assurance\n" ++
   (if p == .core then "" else "import CardanoLedgerApi.V3\n") ++
-  (if p == .cardanoV3Cex then "import CardanoLedgerApi.Counterexample.V3\n" else "") ++
+  (if p == .cardanoV3Cex then
+    "import CardanoLedgerApi.Counterexample.V3\nimport CardanoBlaster.Counterexample.Legacy\n" else "") ++
   (if p == .core then "" else
     "open PlutusCore.ByteString\nopen PlutusCore.Integer\nopen PlutusCore.Data (Data)\n" ++
     "open CardanoLedgerApi.IsData.Class\nopen CardanoLedgerApi.V3\n" ++
@@ -39,6 +41,7 @@ structure Options where
   profile : Option Profile := none
   properties : Array String := #[]
   z3 : Option FilePath := none
+  sourceTypes : Option FilePath := none
   refresh : Bool := false
   json : Bool := false
   timeout : Nat := 1800
@@ -49,6 +52,7 @@ def usage : String := "cardano-blaster check <plutus.json> <assurance.json> [opt
   "  --refresh-environment   Create fresh checking contexts for this runtime\n" ++
   "  --profile PROFILE       auto | core | cardano-v3 | cardano-v3-cex\n" ++
   "  --z3 PATH               Use an explicit solver executable\n" ++
+  "  --source-types PATH     Use a blueprint-bound Plinth Haskell type manifest\n" ++
   "  --output DIR            Store fresh reports and checking artifacts\n" ++
   "  --timeout SECONDS       Bound each embedded verification worker\n" ++
   "  --json                  Print the final JSON report\n\n" ++
@@ -63,6 +67,7 @@ partial def parseOptions (args : List String) (opts : Options) : Except String O
   | "--output" :: path :: rest => parseOptions rest { opts with output := path }
   | "--property" :: id :: rest => parseOptions rest { opts with properties := opts.properties.push id }
   | "--z3" :: path :: rest => parseOptions rest { opts with z3 := some path }
+  | "--source-types" :: path :: rest => parseOptions rest { opts with sourceTypes := some path }
   | "--profile" :: "auto" :: rest => parseOptions rest { opts with profile := none }
   | "--profile" :: value :: rest => parseOptions rest { opts with profile := some (← Profile.parse value) }
   | "--timeout" :: value :: rest =>

@@ -10,6 +10,18 @@
     "version": "1.0.0"
   },
   "bundles": {
+    "aiken-total-rejection": {
+      "producer": {
+        "name": "Aiken",
+        "version": "v1.1.24+bacbeb3",
+        "source": "examples/aiken-total-rejection/source/validators/locked.ak"
+      },
+      "sourceBlueprintSha256": "7c53ff786436803a73c7e847165ba24e339641ae099d35f83f6a6310c532da33",
+      "blueprintSha256": "073d4242c37db979e3afad4368a59709991ffe9c8f0a41c39b95381193e63817",
+      "assuranceSha256": "87eea48f8822f0d7602f2860988091379527e9ab51102fbe698c48067ce29586",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 1
+    },
     "auction": {
       "assuranceSha256": "4761a936d62d7b11760a51cca21858e6d599b0fb20ff8b2104b95553dbcd1104",
       "blueprintSha256": "076c0a12aae7792e35e828975a2bd992e7cfc908fa3af9f8425ba6a420a712b8",
@@ -57,11 +69,63 @@
       "originalAssuranceSha256": "692e4db689e1c8f7107487c266c3fca1eaddbc21be463f093cdbd5a47b6a84af",
       "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
       "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
+    },
+    "plinth-total-rejection": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "432054c8d473136c4078c38478b351cf76e7ae38"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/TotalRejection/Main.hs",
+      "blueprintSha256": "19d5c054cd67f62c132949cf38d8b4f1ebd259bbdd6a2daaf4d37103a773e6b2",
+      "assuranceSha256": "b5f0635c3d867fcd01930b224a96ad4ec32b019e794fa83f617ec9a001a40d03",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 1
+    },
+    "purpose-isolation": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "83fb735953c2a9634e43d5ac5f19dd4368cf7c71"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+      "blueprintSha256": "834df19f9cf0a206c46fb0474aa3eacc27933634128624607ffdfd77c56383ea",
+      "assuranceSha256": "c6100869c3a5fe6d7e77a2a2c5a8e654663deb30afaaa961e39d6e0315bc040b",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 6,
+      "originalAssuranceSha256": "040201d4a84fdc8d3c70481ef6fec54ef5748e8be19869905d1eaec0b929742d",
+      "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
+    },
+    "purpose-isolation-counterexample": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "83fb735953c2a9634e43d5ac5f19dd4368cf7c71"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/PurposeIsolation/Main.hs",
+      "blueprintSha256": "834df19f9cf0a206c46fb0474aa3eacc27933634128624607ffdfd77c56383ea",
+      "assuranceSha256": "b5b8ff09fe69d72b68aa0ae5b100b2e546e4d8189605b82cc31eef0d01a9c084",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 2,
+      "originalAssuranceSha256": "040201d4a84fdc8d3c70481ef6fec54ef5748e8be19869905d1eaec0b929742d",
+      "originalEnvironmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9"
     }
   },
   "mutations": {
     "helper-counterexample": "Reverse the outbids_exact comparison from < to > in the claim; preserve compiled UPLC.",
     "auction-counterexample": "Raise the first_bid_exact minimum from 100 to 101 in the claim; preserve compiled UPLC."
   },
-  "packaging": "Compact environment JSON; remove unused checking-context entries from the two single-property counterexample bundles; recompute affected SHA-256 references. Compiled code and all claims unchanged."
+  "packaging": "Select the generated claims and their checking contexts for the purpose-isolation bundles; retain their exact blueprint and compiled code; update assurance digests after the replay-backed acceptance template change. For the separate Aiken fixture, retain the compiler's exact compiledCode and script hash while adding the compiled-interface metadata required by the checker."
 }

@@ -1,4 +1,5 @@
 import CardanoBlaster.Counterexample
+import CardanoBlaster.SourceValue
 
 namespace Tests.Counterexample
 open Lean System CardanoBlaster
@@ -65,10 +66,38 @@ def run : IO Unit := do
   ensure ((source.splitOn "property = \"../unsafe\\nmodule Evil where\"").length > 1) "property text became source code"
   ensure ((source.splitOn "input0 = (-7 :: Integer)").length > 1) "input identifier derived from producer name"
   ensure ((source.splitOn "ctx :: V3.ScriptInfo").length > 1) "source argument name was lost"
-  ensure ((source.splitOn "V3.MintingScript").length > 1) "source constructor was not reconstructed"
-  ensure ((source.splitOn "decodeData").length == 1) "source export is still a Data wrapper"
+  ensure ((source.splitOn "ctxData :: V3.Data").length > 1) "wire Data was not exported"
+  ensure ((source.splitOn "ctx = decodeData ctxData").length > 1) "Haskell FromData is not used"
+  ensure ((source.splitOn "V3.toData value == wire").length > 1) "decoded context is not checked against the replayed wire"
+  let sourceDescriptor (name : String) := obj [("package", toJson "example"),
+    ("module", toJson "Example.Types"), ("name", toJson name), ("arguments", toJson (#[] : Array Json))]
+  let manifest := obj [("validators", toJson #[obj [("id", toJson "script"),
+    ("datum", obj [("definition", toJson "GameDatum"), ("type", sourceDescriptor "GameDatum")]),
+    ("redeemer", obj [("definition", toJson "GameRedeemer"), ("type", sourceDescriptor "GameRedeemer")])]])]
+  let property := obj [("scope", obj [("validators", toJson #["script"])])]
+  let typedContext := put context "type" (toJson "PlutusLedgerApi.V3.ScriptContext")
+  let typedCall := put call "sourceArguments" (toJson #[obj [("argument", binding "ctx" typedContext)]])
+  let (typedSource, typedInfo) ← IO.ofExcept (prepare (fixture #[typedCall]) (some manifest) (some property) "Counterexample0")
+  for expected in ["module Counterexample0 where", "import qualified Example.Types",
+      "sourceRedeemer :: Example.Types.GameRedeemer", "sourceDatum :: P.Maybe Example.Types.GameDatum",
+      "V3.scriptContextRedeemer ctx", "V3.scriptContextScriptInfo ctx"] do
+    ensure ((typedSource.splitOn expected).length > 1) s!"missing typed source role: {expected}"
+  ensure ((← array (← field typedInfo "decodedRoles")).size == 2) "typed roles were not reported"
+  let injected := put (sourceDescriptor "GameDatum") "module" (toJson "Example.Types\nmain = undefined")
+  let badManifest := put manifest "validators" (toJson #[obj [("id", toJson "script"),
+    ("datum", obj [("definition", toJson "GameDatum"), ("type", injected)]),
+    ("redeemer", .null)]])
+  ensure (!(prepare (fixture #[typedCall]) (some badManifest) (some property)).isOk)
+    "untrusted source type became Haskell code"
+  let matched := put fixture "counterexample" (put (fixture.getObjValD "counterexample") "model"
+    (obj [("bindings", toJson #[binding "ctx" context])]))
+  let (matchedSource, _) ← IO.ofExcept (prepare matched)
+  ensure ((matchedSource.splitOn "ctx_1Data = ctxData").length > 1 &&
+    (matchedSource.splitOn "ctx_1 = ctx").length > 1) "model and replay duplicated the Data argument"
+  ensure ((matchedSource.splitOn (← IO.ofExcept (plutusData sourceWire))).length == 2)
+    "wire Data was emitted more than once"
   let wrongSource := put context "value" wire
-  ensure (!(haskell wrongSource).isOk) "ill-typed source value accepted"
+  ensure ((haskell wrongSource).isOk) "well-formed wire Data should remain exportable"
   let ratioWire (n d : Int) := json <| .constructor "PlutusCore.Data" "Constr" [
     ("index", .integer 0), ("fields", .list [
       .constructor "PlutusCore.Data" "I" [("value", .integer n)],

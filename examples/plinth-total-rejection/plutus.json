@@ -1,0 +1,46 @@
+{
+    "$id": "ual-total-rejection",
+    "$schema": "https://cips.cardano.org/cips/cip57/extensions/compiled-interface/v1/schema.json",
+    "$vocabulary": {
+        "https://cips.cardano.org/cips/cip57": true,
+        "https://cips.cardano.org/cips/cip57/extensions/compiled-interface/v1/vocabulary": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true
+    },
+    "definitions": {
+        "BuiltinData": {}
+    },
+    "preamble": {
+        "plutusVersion": "v3",
+        "title": "Total rejection example",
+        "version": "1.0.0"
+    },
+    "validators": [
+        {
+            "compiledCode": "58f00101003232232993370e9001000d284cdc3a400000299319802249035054350049a930ca4c00400a452003326330064901116d616c666f726d656420636f6e746578740049a45200332633008491116d616c666f726d656420636f6e746578740049a4520033263300a491116d616c666f726d656420636f6e746578740049a45200393370e90000044c98cc031241116d616c666f726d656420636f6e746578740049b260120052200224464c6601c921116d616c666f726d656420636f6e74657874004980526ea8006450010029a802800864660020022400244252003228018014d4cc0140144800400580015ce1",
+            "hash": "21002e4878477d09999556fd36b8b398e3d9a3455f9e6f0a8253dacc",
+            "id": "locked",
+            "interface": {
+                "callingConvention": "ledger-v3",
+                "invocations": [
+                    {
+                        "arguments": [
+                            {
+                                "role": "context"
+                            }
+                        ],
+                        "purpose": "spend"
+                    }
+                ]
+            },
+            "redeemer": {
+                "purpose": "spend",
+                "schema": {
+                    "$ref": "#/definitions/BuiltinData"
+                }
+            },
+            "title": "locked"
+        }
+    ]
+}

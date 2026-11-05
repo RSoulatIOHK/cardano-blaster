@@ -1,0 +1,136 @@
+{
+    "$id": "ual-purpose-isolation",
+    "$schema": "https://cips.cardano.org/cips/cip57/extensions/compiled-interface/v1/schema.json",
+    "$vocabulary": {
+        "https://cips.cardano.org/cips/cip57": true,
+        "https://cips.cardano.org/cips/cip57/extensions/compiled-interface/v1/vocabulary": true,
+        "https://json-schema.org/draft/2020-12/vocab/applicator": true,
+        "https://json-schema.org/draft/2020-12/vocab/core": true,
+        "https://json-schema.org/draft/2020-12/vocab/validation": true
+    },
+    "definitions": {
+        "BuiltinData": {},
+        "Integer": {
+            "dataType": "integer"
+        }
+    },
+    "preamble": {
+        "plutusVersion": "v3",
+        "title": "Purpose isolation templates",
+        "version": "1.0.0"
+    },
+    "validators": [
+        {
+            "compiledCode": "58ee010100323222993370e90070015284cdc3a4004652600200522900199319803a49116d616c666f726d656420636f6e746578740049a45200332633009491116d616c666f726d656420636f6e746578740049a4520033263300b491116d616c666f726d656420636f6e746578740049a45200393370e90000044c98cc035241116d616c666f726d656420636f6e746578740049b260120052200224464c6601e921116d616c666f726d656420636f6e74657874004980526ea8006450010029a8030008993198022481035054350049a930c8cc00400448004884a4006450030029a9980280289000800b0002b9c1",
+            "hash": "ebcea970ebc82889b466d1758a9a1c70b8e4c9a79f36c03cc2fe340b",
+            "id": "parameterizedSpending",
+            "interface": {
+                "callingConvention": "ledger-v3",
+                "invocations": [
+                    {
+                        "arguments": [
+                            {
+                                "role": "parameter",
+                                "source": "/parameters/0"
+                            },
+                            {
+                                "role": "context"
+                            }
+                        ],
+                        "purpose": "spend"
+                    }
+                ]
+            },
+            "parameters": [
+                {
+                    "purpose": "spend",
+                    "schema": {
+                        "dataType": "#integer"
+                    }
+                }
+            ],
+            "redeemer": {
+                "purpose": "spend",
+                "schema": {
+                    "$ref": "#/definitions/BuiltinData"
+                }
+            },
+            "title": "parameterizedSpending"
+        },
+        {
+            "compiledCode": "58f00101003232232993370e9001000ccdc3a40000034a299319802249035054350049a930ca4c00400a452003326330064901116d616c666f726d656420636f6e746578740049a45200332633008491116d616c666f726d656420636f6e746578740049a4520033263300a491116d616c666f726d656420636f6e746578740049a45200393370e90000044c98cc031241116d616c666f726d656420636f6e746578740049b260120052200224464c6601c921116d616c666f726d656420636f6e74657874004980526ea8006450010029a802800864660020022400244252003228018014d4cc0140144800400580015ce1",
+            "hash": "fee59c609ca1ccab00bc577a7a7b5162cbd13394fc98f4b29287e727",
+            "id": "spendingAndMinting",
+            "interface": {
+                "callingConvention": "ledger-v3",
+                "invocations": [
+                    {
+                        "arguments": [
+                            {
+                                "role": "context"
+                            }
+                        ],
+                        "purpose": "spend"
+                    }
+                ]
+            },
+            "redeemer": {
+                "purpose": "spend",
+                "schema": {
+                    "$ref": "#/definitions/BuiltinData"
+                }
+            },
+            "title": "spendingAndMinting"
+        },
+        {
+            "compiledCode": "58e60101003232293370e9001194980080148a400664c6600c9201116d616c666f726d656420636f6e746578740049a45200332633008491116d616c666f726d656420636f6e746578740049a4520033263300a491116d616c666f726d656420636f6e746578740049a45200393370e90000044c98cc031241116d616c666f726d656420636f6e746578740049b260120052200224464c6601c921116d616c666f726d656420636f6e74657874004980526ea8006450010029a8028009326330034901035054350049a930c8cc00400448004884a4006450030029a9980280289000800b0002b9c1",
+            "hash": "8a01154eaade1d96c900f4bd54ba6243d649f8261850de81b3acc9f3",
+            "id": "spendingOnly",
+            "interface": {
+                "callingConvention": "ledger-v3",
+                "invocations": [
+                    {
+                        "arguments": [
+                            {
+                                "role": "context"
+                            }
+                        ],
+                        "purpose": "spend"
+                    }
+                ]
+            },
+            "redeemer": {
+                "purpose": "spend",
+                "schema": {
+                    "$ref": "#/definitions/BuiltinData"
+                }
+            },
+            "title": "spendingOnly"
+        },
+        {
+            "compiledCode": "59040501010033223223293001002914800cc98cc0192401116d616c666f726d656420636f6e746578740049a45200332633008491116d616c666f726d656420636f6e746578740049a4520033263300a491116d616c666f726d656420636f6e746578740049a45200393370e90000044c98cc031241116d616c666f726d656420636f6e746578740049b2601200d229001993198072491a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330104911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330124911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330144911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330164911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330184911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a4520033263301a4911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a4520033263301c4911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a4520033263301e4911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330204911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330224911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330244911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330264911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a452003326330284911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a4520033263302a4911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a4520033263302c4911a6d616c666f726d6564207472616e73616374696f6e20696e666f0049a45200393370e90000114c98cc0b92411a6d616c666f726d6564207472616e73616374696f6e20696e666f0049b3266ebc048cdd2a4000646606066e95200033030300180125eb8503d87a80001981819ba548000cc0c0c00600897ae10103d87a800025eb80a4006466e95200233031375000297ae0a60103d8798000a60103d87b800052864cdd7a6103d87a8000004a5099baf4c103d87a8000002264c6605c9201035054350049a931223263303049011a6d616c666f726d6564207472616e73616374696f6e20696e666f004980000488c98cc0392401116d616c666f726d656420636f6e74657874004980526ea8006450010029a802800864660020022400244252003228018014d4cc0140144800400580015d02b9c1",
+            "hash": "b421b40b50533f5785764af6aa81765c2ab3546f68420d7888de2c84",
+            "id": "uncheckedPurpose",
+            "interface": {
+                "callingConvention": "ledger-v3",
+                "invocations": [
+                    {
+                        "arguments": [
+                            {
+                                "role": "context"
+                            }
+                        ],
+                        "purpose": "spend"
+                    }
+                ]
+            },
+            "redeemer": {
+                "purpose": "spend",
+                "schema": {
+                    "$ref": "#/definitions/BuiltinData"
+                }
+            },
+            "title": "uncheckedPurpose"
+        }
+    ]
+}
