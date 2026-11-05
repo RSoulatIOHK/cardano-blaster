@@ -2,7 +2,7 @@
   "name": "plinth-blaster",
   "displayName": "Plinth Blaster",
   "description": "Check Cardano blueprints and inspect typed Haskell counterexamples alongside UAL properties.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "publisher": "IOG",
   "icon": "images/icon.png",
   "galleryBanner": {
