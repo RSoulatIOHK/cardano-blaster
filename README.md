@@ -47,6 +47,7 @@ bin/cardano-blaster check examples/helper-counterexample/plutus.json examples/he
 bin/cardano-blaster check examples/purpose-isolation/plutus.json examples/purpose-isolation/assurance.json --refresh-environment
 bin/cardano-blaster check examples/purpose-isolation-counterexample/plutus.json examples/purpose-isolation-counterexample/assurance.json --refresh-environment
 bin/cardano-blaster check examples/aiken-total-rejection/plutus.json examples/aiken-total-rejection/assurance.json --refresh-environment
+bin/cardano-blaster check examples/plinth-total-rejection/plutus.json examples/plinth-total-rejection/assurance.json --refresh-environment
 ```
 
 Game and Auction verify 3 and 31 properties. The helper counterexample deliberately
@@ -63,6 +64,13 @@ template's universal rejection claim. Blaster verifies that claim, so the
 expected acceptance witness is absent and the command exits with code 1. See
 the [Aiken example](examples/aiken-total-rejection/README.md) for the source
 and the exact scope of this result.
+
+`examples/plinth-total-rejection` applies the same acceptance template to a
+Plinth validator with contradictory script-purpose checks. Its
+blueprint and assurance are generated from the annotated Haskell source. The
+universal rejection claim verifies and the expected acceptance witness is
+absent, giving the same intentional exit code 1. See the
+[Plinth example](examples/plinth-total-rejection/README.md).
 
 `examples/purpose-isolation` contains three verified purpose-isolation claims
 and three acceptance witnesses. Each witness falsifies a generated universal

@@ -30,6 +30,7 @@ in `provenance.json`.
 | auction-counterexample | 1 | falsified, with confirmed compiled replay |
 | purpose-isolation-counterexample | 2 | isolation falsified with confirmed compiled replay and Haskell `ScriptContext` export; acceptance witnessed |
 | aiken-total-rejection | 1 | generated acceptance expectation fails: universal rejection claim verified |
+| plinth-total-rejection | 1 | Plinth-generated acceptance expectation fails: universal rejection claim verified |
 
 The [Aiken total-rejection fixture](aiken-total-rejection/README.md) is a
 separate cross-compiler example. Its Aiken-produced UPLC is preserved in an
@@ -37,6 +38,11 @@ extended blueprint, and the Plinth acceptance-template formula is supplied as
 an explicit assurance property. It demonstrates detection of a compiled script
 that can never accept a valid context; it does not exercise Haskell annotation
 generation.
+
+The [Plinth total-rejection fixture](plinth-total-rejection/README.md) is
+generated directly from a Plinth validator and its one-line UAL template
+annotation. It exercises the source-to-assurance generator as well as the
+compiled script checker.
 
 The two counterexample bundles preserve the compiled Auction blueprint. Only a
 formal claim is deliberately changed: the helper comparison is reversed, or the

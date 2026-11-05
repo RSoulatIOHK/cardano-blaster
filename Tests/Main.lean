@@ -112,6 +112,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
   for (name, code, count) in [("game", 0, 3), ("parameters", 0, 6), ("recursive", 0, 4),
       ("auction", 0, 31), ("purpose-isolation", 0, 6),
       ("aiken-total-rejection", 1, 1),
+      ("plinth-total-rejection", 1, 1),
       ("helper-counterexample", 1, 1), ("auction-counterexample", 1, 1),
       ("purpose-isolation-counterexample", 1, 2)] do
     let report ← invoke cli (examples / name / "plutus.json") (examples / name / "assurance.json") output true code
@@ -131,7 +132,7 @@ private def integration (cli examples output : FilePath) : IO Unit := do
       else
         ensure (results.all fun r => optText r "outcome" == some "verified") "true claim not verified"
     else
-      if name == "aiken-total-rejection" then
+      if name == "aiken-total-rejection" || name == "plinth-total-rejection" then
         ensure (optText results[0]! "outcome" == some "verified" &&
           (results[0]!.getObjValAs? Bool "expectationMet").toOption == some false &&
           results[0]!.getObjValD "counterexample" == Json.null)

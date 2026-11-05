@@ -70,6 +70,22 @@
       "originalEnvironmentSha256": "014d18a144190c59c78be0a2517b90acbc4a0d8e21e5babbb09c13559c5cafcf",
       "environmentSha256": "d7ee9d3c29b3ac1fb54ac3f54d9f31f0b63c16601821c436e96de4ccbba9700b"
     },
+    "plinth-total-rejection": {
+      "producer": {
+        "url": "https://github.com/RSoulatIOHK/plutus",
+        "rev": "432054c8d473136c4078c38478b351cf76e7ae38"
+      },
+      "templateSpecification": {
+        "url": "https://github.com/input-output-hk/UniversalAnnotationLanguage",
+        "rev": "edcbdafb1b7a58d561c2962f6bfc35813192263d",
+        "status": "proposed-source-extension"
+      },
+      "generatorSource": "doc/docusaurus/static/code/Example/Ual/TotalRejection/Main.hs",
+      "blueprintSha256": "19d5c054cd67f62c132949cf38d8b4f1ebd259bbdd6a2daaf4d37103a773e6b2",
+      "assuranceSha256": "b5f0635c3d867fcd01930b224a96ad4ec32b019e794fa83f617ec9a001a40d03",
+      "environmentSha256": "0f289291057d600e1e21a8955db41a6062f7fc8d3907c55b9b167738fbf90df9",
+      "properties": 1
+    },
     "purpose-isolation": {
       "producer": {
         "url": "https://github.com/RSoulatIOHK/plutus",
