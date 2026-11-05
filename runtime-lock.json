@@ -15,7 +15,7 @@
     {
       "name": "CardanoLedgerApi",
       "url": "https://github.com/input-output-hk/CardanoLedgerApiBlaster",
-      "rev": "a4c1d87ba83c4d66f4a2f217857c86203b483c34"
+      "rev": "4dec436ad8bffa6115101673a7603d00efc3d045"
     }
   ],
   "z3": {
