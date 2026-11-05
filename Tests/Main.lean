@@ -1,11 +1,26 @@
 import CardanoBlaster.Cli
 import CardanoBlaster.SourceValue
 import CardanoBlasterTests
+import PlutusCore.UPLC.ScriptEncoding.Basic
 
 open Lean System CardanoBlaster
 
 private def ensure (condition : Bool) (message : String) : IO Unit :=
   unless condition do throw <| IO.userError message
+
+private def plinthBudgetSanity (blueprint : FilePath) : IO Unit := do
+  let validators ← array (← field (← readJson blueprint) "validators")
+  let hex ← text validators[0]! "compiledCode"
+  let program ← IO.ofExcept (PlutusCore.UPLC.ScriptEncoding.singleCborEncodedScriptFromHex? hex)
+  -- The script inspects the purpose tag in this structurally shaped argument.
+  -- It must reach its contradictory checks before the declared step bound;
+  -- the dummy TxInfo is not claimed to be ledger-valid.
+  let raw : PlutusCore.Data.Data := .Constr 0 [.I 0, .I 0, .Constr 1 []]
+  let argument := PlutusCore.UPLC.Term.Term.Const (.Data raw)
+  match PlutusCore.UPLC.CekMachine.cekExecuteProgram program [argument] 1000 with
+  | .Error => pure ()
+  | .Halt _ => throw <| IO.userError "total-rejection script unexpectedly succeeded"
+  | _ => throw <| IO.userError "total-rejection script exhausted its CEK step bound"
 
 private def nativeReport (results : Array Json) : Json := obj [
   ("format", toJson "plinth-counterexample-report-v1"), ("assuranceSha256", toJson "aa"),
@@ -59,6 +74,7 @@ private def unit : IO Unit := do
     try discard <| (checkedBytes folder ref).run #[] catch _ => failed := true
     ensure failed "tampered parameter accepted"
   let home ← Runtime.root
+  plinthBudgetSanity (home / "examples/plinth-total-rejection/plutus.json")
   let manifest ← readJson (home / "lake-manifest.json")
   let pins ← array (← field Runtime.lock "packages")
   let entries ← array (← field manifest "packages")

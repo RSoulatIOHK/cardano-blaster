@@ -21,3 +21,9 @@ The intentional result is exit code 1: the universal rejection proposition is
 `verified`, while its expected acceptance witness is absent
 (`expectationMet: false`). This is a bounded compiled-UPLC check for total
 rejection, not a proof that every possible execution is rejected.
+
+The native unit suite also runs the exact compiled UPLC on a structurally
+shaped context and checks that it reaches a CEK `Error` within the 1,000-step
+bound. This guards against a vacuous result caused solely by step exhaustion;
+the dummy transaction info in that calibration input is not a ledger-valid
+`ScriptContext`.
