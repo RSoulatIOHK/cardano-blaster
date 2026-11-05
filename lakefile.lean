@@ -6,7 +6,7 @@ package «CardanoBlaster» where
 
 require Blaster from git "https://github.com/input-output-hk/Lean-blaster" @ "1cb5a63e0416f336caa3104c2654718e6f971bc9"
 require PlutusCore from git "https://github.com/input-output-hk/PlutusCoreBlaster" @ "eed6584454a5c76de20f5b316fea203553d38452"
-require CardanoLedgerApi from git "https://github.com/input-output-hk/CardanoLedgerApiBlaster" @ "9b4fec4f873500765d6cab306429975c8ce64140"
+require CardanoLedgerApi from git "https://github.com/input-output-hk/CardanoLedgerApiBlaster" @ "c4711cfde34b49b163a627dafafee4526a3450fd"
 
 lean_lib CardanoBlaster
 

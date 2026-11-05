@@ -33,10 +33,10 @@
       "manifestFile": "lake-manifest.json",
       "configFile": "lakefile.lean",
       "subDir": null,
-      "inputRev": "9b4fec4f873500765d6cab306429975c8ce64140",
+      "inputRev": "c4711cfde34b49b163a627dafafee4526a3450fd",
       "name": "CardanoLedgerApi",
       "url": "https://github.com/input-output-hk/CardanoLedgerApiBlaster",
-      "rev": "9b4fec4f873500765d6cab306429975c8ce64140"
+      "rev": "c4711cfde34b49b163a627dafafee4526a3450fd"
     }
   ],
   "name": "CardanoBlaster",
