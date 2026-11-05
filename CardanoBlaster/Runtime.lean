@@ -5,6 +5,8 @@ namespace CardanoBlaster.Runtime
 open Lean System
 
 def version := "0.2.1"
+-- Rebuild this module whenever the pinned runtime lock changes: the lock is
+-- embedded in the native executable and checked against the on-disk file.
 def lockSource : String := include_str "../runtime-lock.json"
 def lock : Json := (Json.parse lockSource).toOption.get!
 

@@ -22,5 +22,12 @@ test('renders the decoded value for an inline hover and a full Haskell view', ()
   assert.match(rendered.value, /scriptContextScriptInfo = MintingScript 2/);
   assert.match(rendered.content, /-- Compiled UPLC replay: confirmed/);
   assert.match(rendered.content, /-- \("ctx","decodeData ctxData"\)/);
+  const typed = renderCounterexample(
+    'ScriptContext {scriptContextTxInfo = TxInfo {txInfoInputs = []}}\nredeemer = WitnessRedeemer 1\ndatum = Just (GameDatum 4)\n("ctx","decodeData ctxData")\n',
+    { property: 'typedWitness', replay: 'confirmed', inputs: [{ sourceType: 'V3.ScriptContext' }] },
+    'Counterexample0.hs');
+  assert.match(typed.value, /redeemer =\n  WitnessRedeemer 1/);
+  assert.match(typed.value, /datum =\n  Just \(GameDatum 4\)/);
+  assert.doesNotMatch(typed.content, /-- redeemer =/);
   assert.throws(() => renderCounterexample('', { inputs: [] }, 'CEX.hs'), /no value/);
 });

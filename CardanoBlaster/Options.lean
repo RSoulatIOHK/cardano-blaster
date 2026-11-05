@@ -41,6 +41,7 @@ structure Options where
   profile : Option Profile := none
   properties : Array String := #[]
   z3 : Option FilePath := none
+  sourceTypes : Option FilePath := none
   refresh : Bool := false
   json : Bool := false
   timeout : Nat := 1800
@@ -51,6 +52,7 @@ def usage : String := "cardano-blaster check <plutus.json> <assurance.json> [opt
   "  --refresh-environment   Create fresh checking contexts for this runtime\n" ++
   "  --profile PROFILE       auto | core | cardano-v3 | cardano-v3-cex\n" ++
   "  --z3 PATH               Use an explicit solver executable\n" ++
+  "  --source-types PATH     Use a blueprint-bound Plinth Haskell type manifest\n" ++
   "  --output DIR            Store fresh reports and checking artifacts\n" ++
   "  --timeout SECONDS       Bound each embedded verification worker\n" ++
   "  --json                  Print the final JSON report\n\n" ++
@@ -65,6 +67,7 @@ partial def parseOptions (args : List String) (opts : Options) : Except String O
   | "--output" :: path :: rest => parseOptions rest { opts with output := path }
   | "--property" :: id :: rest => parseOptions rest { opts with properties := opts.properties.push id }
   | "--z3" :: path :: rest => parseOptions rest { opts with z3 := some path }
+  | "--source-types" :: path :: rest => parseOptions rest { opts with sourceTypes := some path }
   | "--profile" :: "auto" :: rest => parseOptions rest { opts with profile := none }
   | "--profile" :: value :: rest => parseOptions rest { opts with profile := some (← Profile.parse value) }
   | "--timeout" :: value :: rest =>

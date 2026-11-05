@@ -65,6 +65,26 @@ function plutusCheckout(source) {
   return '';
 }
 
+function sourceImportPaths(source) {
+  if (!source || !fs.existsSync(source)) return [];
+  const directories = [];
+  let directory = fs.statSync(source).isDirectory() ? source : path.dirname(source);
+  for (let depth = 0; depth < 12; depth += 1) {
+    directories.push(directory);
+    if (fs.existsSync(path.join(directory, 'cabal.project'))) break;
+    const parent = path.dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
+  }
+  return directories;
+}
+
+function decoderArgs(file, source) {
+  return ['exec', '--verbose=0', '--disable-tests', '--disable-benchmarks', '--',
+    'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', '-package', 'plutus-tx',
+    ...sourceImportPaths(source).map((directory) => `-i${directory}`), file, '-e', 'main'];
+}
+
 function resultsRoot(source) {
   const folder = workspaceFolder(source)?.uri.fsPath;
   return configuredPath('outputPath', source) || path.join(folder || path.resolve(__dirname, '../..'), 'cardano-blaster-results');
@@ -452,8 +472,7 @@ async function decodeHaskellCounterexample(selected) {
     { type: 'blaster', task: `decode-${choice.property}` }, vscode.TaskScope.Workspace,
     `Decode Haskell CEX: ${choice.property}`, 'Blaster',
     new vscode.ProcessExecution(config.get('cabalPath', 'cabal'),
-      ['exec', '--verbose=0', '--disable-tests', '--disable-benchmarks', '--',
-        'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', file, '-e', 'main'],
+      decoderArgs(file, source),
       { cwd: plutus, env: { ...process.env, ...environment } })
   );
   task.presentationOptions = { reveal: vscode.TaskRevealKind.Always, panel: vscode.TaskPanelKind.Dedicated, clear: true };
@@ -607,8 +626,7 @@ function decodeCounterexample(choice) {
   if (!decodedCounterexamples.has(key)) {
     const pending = runProcess({
       command: config.get('cabalPath', 'cabal'),
-      args: ['exec', '--verbose=0', '--disable-tests', '--disable-benchmarks', '--',
-        'ghci', '-ignore-dot-ghci', '-package', 'plutus-ledger-api', file, '-e', 'main'],
+      args: decoderArgs(file, source),
       cwd: plutus,
       env: { ...process.env, ...environment }
     }, (part) => outputChannel.append(part)).then((decoded) => {

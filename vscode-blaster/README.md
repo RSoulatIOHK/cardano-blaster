@@ -17,8 +17,10 @@ replay confirms the witness, you can inspect the counterexample in the editor.
   a falsified property to see a value decoded with Plutus FromData, or open the
   formatted value beside the specification. If Haskell rejects a Lean model's
   raw `Data` fields, the hover and editor show the exact replayed `Data` instead.
-  A decoded value is checked against
-  the Data used in the confirmed UPLC replay.
+  A decoded value is checked against the Data used in the confirmed UPLC
+  replay. When the Plinth generator supplies `source-types.json`, the inline
+  view can also show contract-defined datum and redeemer values using their
+  own `FromData` instances.
 - **Check existing bundles.** Open a plutus.json or assurance.json and run
   **Blaster: Check Blueprint and Assurance**. A native report can be opened
   independently of the Haskell source.

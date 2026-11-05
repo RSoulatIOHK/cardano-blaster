@@ -113,6 +113,28 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
   let blueprintHash ← digestBytes blueprintBytes
   let assuranceHash ← digestBytes assuranceBytes
   let mut inputs : Inputs := #[(blueprint.toString, blueprintHash), (assurancePath.toString, assuranceHash)]
+  -- Source type provenance is optional and never changes the SMT/UPLC verdict.
+  -- A stale or malformed manifest is reported and ignored for source export.
+  let sourceTypesPath := options.sourceTypes.getD (blueprint.parent.getD "." / "source-types.json")
+  let mut sourceTypes : Option Json := none
+  if ← sourceTypesPath.pathExists then
+    try
+      let path ← IO.FS.realPath sourceTypesPath
+      let candidate ← readJson path
+      if optText candidate "format" == some "plinth-source-types-v1" &&
+          optText candidate "blueprintSha256" == some blueprintHash then
+        sourceTypes := some candidate
+        inputs := inputs.push (path.toString, ← hashFile path)
+        record report "sourceTypes" (obj [("status", toJson "accepted"), ("path", toJson path.toString)])
+      else
+        record report "sourceTypes" (obj [("status", toJson "ignored"),
+          ("reason", toJson "source type manifest does not match this blueprint")])
+    catch error =>
+      record report "sourceTypes" (obj [("status", toJson "ignored"),
+        ("reason", toJson error.toString)])
+  else if options.sourceTypes.isSome then
+    record report "sourceTypes" (obj [("status", toJson "ignored"),
+      ("reason", toJson "source type manifest does not exist")])
   record report "inputs" (obj (inputs.toList.map (fun (k, v) => (k, toJson v))))
   let blueprintRef ← field (← field assurance "blueprint") "hash"
   unless ["sha256", "sha-256"].contains (← text blueprintRef "alg").toLower &&
@@ -207,7 +229,7 @@ def check (options : Options) (run : FilePath) (report : IO.Ref Json) : IO Outco
   let (rawOutcome, results) ← IO.ofExcept (classify (← readJson nativePath) expected
     (← hashFile checkedPath) (← hashFile checkedBlueprint) code)
   let (outcome, results) ← IO.ofExcept (reconcileExpectations properties
-    (← Counterexample.exportSources run results) rawOutcome)
+    (← Counterexample.exportSources run results sourceTypes properties) rawOutcome)
   record report "results" (.arr results)
   record report "checkedAssuranceSha256" (toJson (← hashFile checkedPath))
   record report "verifierReportSha256" (toJson (← hashFile nativePath))

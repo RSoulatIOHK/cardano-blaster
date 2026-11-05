@@ -54,14 +54,22 @@ function renderCounterexample(stdout, choice, fileName) {
   if (!lines[0]) throw new Error('Haskell decoder produced no value');
   const pretty = prettyHaskell(lines[0]).split('\n').map((line) => `  ${line}`).join('\n');
   const type = choice.inputs.length === 1 ? choice.inputs[0].sourceType : undefined;
-  const value = [...(type ? [`counterexample :: ${type}`] : []), 'counterexample =', pretty].join('\n');
+  const roles = [];
+  const originalInputs = [];
+  for (const line of lines.slice(1)) {
+    const role = /^(datum|redeemer) = (.*)$/.exec(line);
+    if (role) roles.push(`${role[1]} =\n${prettyHaskell(role[2]).split('\n').map((part) => `  ${part}`).join('\n')}`);
+    else originalInputs.push(line);
+  }
+  const value = [...(type ? [`counterexample :: ${type}`] : []), 'counterexample =', pretty,
+    ...roles.flatMap((role) => ['', role])].join('\n');
   const content = [
     `-- Blaster counterexample: ${choice.property}`,
     `-- Compiled UPLC replay: ${choice.replay}`,
     `-- Decoded with Plutus FromData from ${fileName}`,
     '',
     value,
-    ...(lines.length > 1 ? ['', '-- Original input bindings:', ...lines.slice(1).map((line) => `-- ${line}`)] : [])
+    ...(originalInputs.length ? ['', '-- Original input bindings:', ...originalInputs.map((line) => `-- ${line}`)] : [])
   ].join('\n');
   return { value, content };
 }

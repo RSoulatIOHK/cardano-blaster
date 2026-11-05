@@ -69,6 +69,26 @@ def run : IO Unit := do
   ensure ((source.splitOn "ctxData :: V3.Data").length > 1) "wire Data was not exported"
   ensure ((source.splitOn "ctx = decodeData ctxData").length > 1) "Haskell FromData is not used"
   ensure ((source.splitOn "V3.toData value == wire").length > 1) "decoded context is not checked against the replayed wire"
+  let sourceDescriptor (name : String) := obj [("package", toJson "example"),
+    ("module", toJson "Example.Types"), ("name", toJson name), ("arguments", toJson (#[] : Array Json))]
+  let manifest := obj [("validators", toJson #[obj [("id", toJson "script"),
+    ("datum", obj [("definition", toJson "GameDatum"), ("type", sourceDescriptor "GameDatum")]),
+    ("redeemer", obj [("definition", toJson "GameRedeemer"), ("type", sourceDescriptor "GameRedeemer")])]])]
+  let property := obj [("scope", obj [("validators", toJson #["script"])])]
+  let typedContext := put context "type" (toJson "PlutusLedgerApi.V3.ScriptContext")
+  let typedCall := put call "sourceArguments" (toJson #[obj [("argument", binding "ctx" typedContext)]])
+  let (typedSource, typedInfo) ← IO.ofExcept (prepare (fixture #[typedCall]) (some manifest) (some property) "Counterexample0")
+  for expected in ["module Counterexample0 where", "import qualified Example.Types",
+      "sourceRedeemer :: Example.Types.GameRedeemer", "sourceDatum :: P.Maybe Example.Types.GameDatum",
+      "V3.scriptContextRedeemer ctx", "V3.scriptContextScriptInfo ctx"] do
+    ensure ((typedSource.splitOn expected).length > 1) s!"missing typed source role: {expected}"
+  ensure ((← array (← field typedInfo "decodedRoles")).size == 2) "typed roles were not reported"
+  let injected := put (sourceDescriptor "GameDatum") "module" (toJson "Example.Types\nmain = undefined")
+  let badManifest := put manifest "validators" (toJson #[obj [("id", toJson "script"),
+    ("datum", obj [("definition", toJson "GameDatum"), ("type", injected)]),
+    ("redeemer", .null)]])
+  ensure (!(prepare (fixture #[typedCall]) (some badManifest) (some property)).isOk)
+    "untrusted source type became Haskell code"
   let matched := put fixture "counterexample" (put (fixture.getObjValD "counterexample") "model"
     (obj [("bindings", toJson #[binding "ctx" context])]))
   let (matchedSource, _) ← IO.ofExcept (prepare matched)

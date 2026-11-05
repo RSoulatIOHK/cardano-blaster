@@ -1,8 +1,11 @@
 # Plinth bridge: adding a property and reviewing the evidence
 
 The source of truth is the Haskell contract and its UAL annotation. Plutus
-compiles the on-chain definition to UPLC and generates `plutus.json` plus
-`assurance.json`. `cardano-blaster check` imports those exact bytes, checks the
+compiles the on-chain definition to UPLC and generates `plutus.json`,
+`assurance.json` and a blueprint-bound `source-types.json`. The last file
+records Haskell datum/redeemer type provenance for counterexample display; it
+does not change the portable CIP-57 or assurance formats.
+`cardano-blaster check` imports the blueprint and assurance bytes, checks the
 formal proposition with Blaster, and records the SMT verdict separately from
 compiled UPLC replay and Haskell counterexample export. The VS Code extension
 attaches the fresh result to its source annotation.
@@ -22,9 +25,20 @@ The [CLI README](../README.md) gives release and source-build commands. Run the 
 
 For a milestone review, retain the source annotation, generated blueprint and assurance, the CLI `report.json`, `verification.log`, and any generated `Counterexample*.hs`. In the report, distinguish `verified`, `falsified`, `inconclusive`, and `not-checked`; inspect `replay.status` and Haskell export independently. Check the input, environment, executable and solver digests before attributing an old result to a new source. `--refresh-environment` creates a fresh derived checking context when replaying examples on another installation; it does not change the proposition or compiled script.
 
-The current boundary is explicit: source export and compiled replay are supported for the documented types, including V3 `ScriptContext`, but arbitrary contract-specific Haskell datum/redeemer types are not inferred. A generated Haskell module performs the `FromData` decode and round-trip check when run; the CLI's `check` command does not compile that Haskell module. The acceptance template can be presented as a total-rejection check, but the Aiken fixture alone does not demonstrate automatic generation for Aiken, and positive Aiken witness search under the full `validScriptContext` predicate remains inconclusive. Record those limits before claiming the second milestone item is complete.
+Source export and compiled replay support V3 `ScriptContext` and contract-defined
+datum/redeemer types when the Plinth generator supplied a matching
+`source-types.json`. The Haskell module invokes the project's actual `FromData`
+instance and checks `ToData` against the replayed wire bytes; the CLI's `check`
+command does not compile that module. Other arbitrary nested Haskell source
+types are not inferred. In the purpose-isolation example, the intentionally
+failing property replays a byte-string redeemer and the source module displays
+it as `WitnessRedeemer "ABC"`. The acceptance template can be presented as a
+total-rejection check, but the Aiken fixture alone does not demonstrate
+automatic generation for Aiken, and positive Aiken witness search under the
+full `validScriptContext` predicate remains inconclusive. Record those limits
+before claiming the second milestone item is complete.
 
-Relevant review branches are [Plutus #7980](https://github.com/IntersectMBO/plutus/pull/7980), [Core #64](https://github.com/input-output-hk/PlutusCoreBlaster/pull/64), [Ledger #24](https://github.com/input-output-hk/CardanoLedgerApiBlaster/pull/24), [Lean Blaster #445](https://github.com/input-output-hk/Lean-blaster/pull/445), and [the CLI PR](https://github.com/RSoulatIOHK/cardano-blaster/pull/1). The purpose-isolation Plutus work is stacked on the Plutus #7980 branch. Review mergeability and CI on those PRs at review time; the example evidence alone does not imply that all upstream changes have merged.
+Relevant review branches are [Plutus #7980](https://github.com/IntersectMBO/plutus/pull/7980), [the Plutus fork PR](https://github.com/RSoulatIOHK/plutus/pull/1), [Core #64](https://github.com/input-output-hk/PlutusCoreBlaster/pull/64), [Ledger #24](https://github.com/input-output-hk/CardanoLedgerApiBlaster/pull/24), [Ledger #27](https://github.com/input-output-hk/CardanoLedgerApiBlaster/pull/27), [Lean Blaster #445](https://github.com/input-output-hk/Lean-blaster/pull/445), and [the CLI PR](https://github.com/RSoulatIOHK/cardano-blaster/pull/1). The Plutus fork work is stacked on Plutus #7980; the Ledger validity branch is stacked on Ledger #24. The CLI pins exact revisions for each dependency. Review mergeability and CI on those PRs at review time; the example evidence alone does not imply that all upstream changes have merged.
 
 ## Checker syntax follow-up
 

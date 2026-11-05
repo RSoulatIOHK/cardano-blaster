@@ -144,12 +144,18 @@ round trip raises an explicit Haskell error; the raw Data remains available.
 Invalid or colliding Haskell identifiers receive a safe replacement or suffix;
 the original name remains in the JSON report.
 
-The CLI generates this source in Lean without GHC or Python. It currently knows
-the Haskell types of V3 `ScriptContext`, `TxInfo` and `ScriptInfo` arguments.
-Fields whose actual Haskell type is `BuiltinData` remain Data: without an explicit
-source type mapping, the tool cannot claim that a datum or redeemer is a
-particular contract type. Arbitrary user-defined Haskell type reconstruction is
-not yet supported.
+The CLI generates this source in Lean without GHC or Python. It knows the Haskell
+types of V3 `ScriptContext`, `TxInfo` and `ScriptInfo` arguments. A Plinth
+generator can also write `source-types.json` beside `plutus.json`, recording
+which contract-defined Haskell datum and redeemer types correspond to the
+blueprint definitions. The CLI accepts that manifest only when its
+`blueprintSha256` matches the exact blueprint it checks. It then emits source
+that extracts the Data from a replayed context and decodes it through the
+project's own `FromData` instance. Raw `BuiltinData` remains Data. The manifest
+does not change the proof or UPLC replay; a decode failure is reported by the
+generated Haskell module rather than hidden or treated as a verified result.
+The default is the `source-types.json` beside the blueprint; use
+`--source-types PATH` to select another manifest.
 
 Each exported context must match a replayed wire argument exactly. The complete
 wire value and confirmed UPLC replay remain in `verifier-report.json`; the
@@ -166,12 +172,19 @@ Cabal, GHC and Node.js build environment. Standalone JSON checks use only the
 native CLI.
 
 To compile and run an exported module, use a GHC environment containing the
-Plutus project's `plutus-ledger-api` and `bytestring` packages:
+Plutus project's `plutus-ledger-api`, `plutus-tx` and `bytestring` packages.
+For contract-defined types, include the source directory that contains their
+Haskell module:
 
 ```sh
-ghc -package plutus-ledger-api -package plutus-tx -package bytestring /absolute/path/Counterexample0.hs -o replay-context
+ghc -package plutus-ledger-api -package plutus-tx -package bytestring \
+  -i/absolute/path/to/project/source -main-is Counterexample0.main \
+  /absolute/path/Counterexample0.hs -o replay-context
 ./replay-context
 ```
+
+The VS Code extension discovers source import paths from the project file and
+uses its Cabal environment to evaluate the generated module for inline display.
 
 `counterexample.source` in `report.json` records `status`, the Haskell file URI
 and SHA-256, input names/expressions, and the contexts' call targets and argument
